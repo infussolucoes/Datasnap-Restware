@@ -1,0 +1,49 @@
+package RestEasyObjectsCORE;
+
+{$R *.res}
+{$R *.dres}
+{$IFDEF IMPLICITBUILDING This IFDEF should not be used by users}
+{$ALIGN 8}
+{$ASSERTIONS ON}
+{$BOOLEVAL OFF}
+{$DEBUGINFO OFF}
+{$EXTENDEDSYNTAX ON}
+{$IMPORTEDDATA ON}
+{$IOCHECKS ON}
+{$LOCALSYMBOLS ON}
+{$LONGSTRINGS ON}
+{$OPENSTRINGS ON}
+{$OPTIMIZATION OFF}
+{$OVERFLOWCHECKS OFF}
+{$RANGECHECKS OFF}
+{$REFERENCEINFO ON}
+{$SAFEDIVIDE OFF}
+{$STACKFRAMES ON}
+{$TYPEDADDRESS OFF}
+{$VARSTRINGCHECKS ON}
+{$WRITEABLECONST OFF}
+{$MINENUMSIZE 1}
+{$IMAGEBASE $400000}
+{$DEFINE DEBUG}
+{$ENDIF IMPLICITBUILDING}
+{$IMPLICITBUILD ON}
+
+requires
+  rtl,
+  IndySystem,
+  IndyProtocols,
+  IndyCore,
+  soaprtl;
+
+contains
+  uRESTDWBase in '..\..\Source\uRESTDWBase.pas',
+  uRESTDWReg in '..\..\Source\uRESTDWReg.pas',
+  ServerUtils in '..\..\Source\libs\ServerUtils.pas',
+  StringBuilderUnit in '..\..\Source\libs\StringBuilderUnit.pas',
+  SysTypes in '..\..\Source\libs\SysTypes.pas',
+  uDWConsts in '..\..\Source\libs\uDWConsts.pas',
+  uDWJSONTools in '..\..\Source\libs\uDWJSONTools.pas',
+  uDWJSONObject in '..\..\Source\libs\uDWJSONObject.pas',
+  uKBDynamic in '..\..\Source\libs\uKBDynamic.pas';
+
+end.
