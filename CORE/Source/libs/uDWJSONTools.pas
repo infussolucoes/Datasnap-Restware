@@ -3,7 +3,7 @@ unit uDWJSONTools;
 interface
 
 Uses
-  {$IFDEF LCL}
+  {$IFDEF FPC}
   SysUtils, SysTypes, ServerUtils, Classes, uDWConsts, Base64;
   {$ELSE}
   System.SysUtils, SysTypes, ServerUtils, System.Classes, Soap.EncdDecd, uDWConsts;
@@ -16,37 +16,24 @@ Function GetPairJSON  (Status      : Integer;
 Function GetPairJSON  (Tag,
                        MessageText : String;
                        Encoding    : TEncodeSelect = esUtf8) : String;Overload;
-Function EncodeStrings(Value       : String;
-                       Encoding    : TEncoding)              : String;
-Function DecodeStrings(Value       : String;
-                       Encoding    : TEncoding)              : String;
+Function EncodeStrings(Value       : String
+                      {$IFNDEF FPC};
+                          Encoding : TEncoding
+                                      {$ENDIF})              : String;
+Function DecodeStrings(Value       : String
+                      {$IFNDEF FPC};
+                          Encoding : TEncoding
+                                      {$ENDIF})              : String;
 
 implementation
 
-Function EncodeStrings(Value : String; Encoding : TEncoding) : String;
+Function EncodeStrings(Value : String{$IFNDEF FPC}; Encoding : TEncoding{$ENDIF}) : String;
 Var
  Input,
  Output : TStringStream;
- {$IFDEF LCL}
- Encoder : TBase64EncodingStream;
- {$ENDIF}
 Begin
- {$IFDEF LCL}
- Input := TStringStream.Create(Value);
- Try
-  Input.Position := 0;
-  Output := TStringStream.Create('');
-  Try
-   Encoder := TBase64EncodingStream.Create(Output);
-   Encoder.CopyFrom(Input, Input.Size);
-   Encoder.Position := 0;
-   Result := Encoder.ReadAnsiString;
-  Finally
-   Output.Free;
-  End;
- Finally
-  Input.Free;
- End;
+ {$IFDEF FPC}
+ Result := EncodeStringBase64(Value);
  {$ELSE}
  Input := TStringStream.Create(Value, Encoding);
  Try
@@ -64,42 +51,22 @@ Begin
  {$ENDIF}
 End;
 
-Function DecodeStrings(Value : String;Encoding : TEncoding) : String;
+Function DecodeStrings(Value : String{$IFNDEF FPC};Encoding : TEncoding{$ENDIF}) : String;
 Var
  Input,
  Output : TStringStream;
- {$IFDEF LCL}
- Decoder: TBase64DecodingStream;
- {$ENDIF}
 Begin
  If Length(Value) > 0 Then
   Begin
-   {$IFDEF LCL}
-   Input := TStringStream.Create(Value);
-   Try
-    Output := TStringStream.Create('');
-    Try
-     Decoder       := TBase64DecodingStream.Create(Input);
-     Output.CopyFrom(Decoder, Decoder.Size);
-     Output.Position := 0;
-     Try
-      Result := Output.ReadAnsiString;
-     Except
-      Raise;
-     End;
-    Finally
-     Output.Free;
-    End;
-   Finally
-    Input.Free;
-   End;
+   {$IFDEF FPC}
+   Result := DecodeStringBase64(Value);
    {$ELSE}
    Input := TStringStream.Create(Value, Encoding);
    Try
     Output := TStringStream.Create('', Encoding);
     Try
+     Input.Position := 0;
      Soap.EncdDecd.DecodeStream(Input, Output);
-     Output.Position := 0;
      Try
       Result := Output.DataString;
      Except
@@ -123,7 +90,7 @@ Var
 Begin
  WSResult.STATUS      := Tag;
  WSResult.MessageText := MessageText;
- Result               := EncodeStrings(TServerUtils.Result2JSON(WSResult), GetEncoding(Encoding));
+ Result               := EncodeStrings(TServerUtils.Result2JSON(WSResult){$IFNDEF FPC}, GetEncoding(Encoding){$ENDIF});
 End;
 
 Function GetPairJSON(Status      : Integer;
@@ -134,7 +101,7 @@ Var
 Begin
  WSResult.STATUS      := IntToStr(Status);
  WSResult.MessageText := MessageText;
- Result               := EncodeStrings(TServerUtils.Result2JSON(WSResult), GetEncoding(Encoding));
+ Result               := EncodeStrings(TServerUtils.Result2JSON(WSResult){$IFNDEF FPC}, GetEncoding(Encoding){$ENDIF});
 End;
 
 end.

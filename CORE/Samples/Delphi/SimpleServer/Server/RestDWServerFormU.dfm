@@ -1297,6 +1297,10 @@ object RestDWForm: TRestDWForm
     object tsLogs: TTabSheet
       Caption = 'Logs'
       ImageIndex = 1
+      ExplicitLeft = 0
+      ExplicitTop = 0
+      ExplicitWidth = 0
+      ExplicitHeight = 0
       object Label19: TLabel
         Left = 7
         Top = 147
@@ -1333,14 +1337,14 @@ object RestDWForm: TRestDWForm
   end
   object ApplicationEvents1: TApplicationEvents
     OnIdle = ApplicationEvents1Idle
-    Left = 356
-    Top = 123
+    Left = 220
+    Top = 128
   end
   object ctiPrincipal: TTrayIcon
     Hint = 'REST Dataware - Service'
     PopupMenu = pmMenu
     OnDblClick = ctiPrincipalDblClick
-    Left = 224
+    Left = 220
     Top = 80
   end
   object pmMenu: TPopupMenu
@@ -1365,9 +1369,40 @@ object RestDWForm: TRestDWForm
     SSLVersion = sslvSSLv2
     OnLastRequest = RESTServicePooler1LastRequest
     OnLastResponse = RESTServicePooler1LastResponse
-    Encoding = esUtf8
+    Encoding = esASCII
     ServerContext = 'restdataware'
-    Left = 168
-    Top = 160
+    Left = 192
+    Top = 128
+  end
+  object FDStanStorageJSONLink1: TFDStanStorageJSONLink
+    Left = 293
+    Top = 245
+  end
+  object FDPhysFBDriverLink1: TFDPhysFBDriverLink
+    Left = 355
+    Top = 240
+  end
+  object FDGUIxWaitCursor1: TFDGUIxWaitCursor
+    Provider = 'Forms'
+    Left = 355
+    Top = 187
+  end
+  object Server_FDConnection: TFDConnection
+    Params.Strings = (
+      
+        'Database=D:\Meus Dados\Projetos\SUGV\Componentes\XyberPower\REST' +
+        '_Controls\DEMO\EMPLOYEE.FDB'
+      'User_Name=SYSDBA'
+      'Password=masterkey'
+      'Server=localhost'
+      'Port=3050'
+      'CharacterSet='
+      'DriverID=FB')
+    UpdateOptions.AssignedValues = [uvCountUpdatedRecords]
+    ConnectedStoredUsage = []
+    LoginPrompt = False
+    BeforeConnect = Server_FDConnectionBeforeConnect
+    Left = 294
+    Top = 186
   end
 end

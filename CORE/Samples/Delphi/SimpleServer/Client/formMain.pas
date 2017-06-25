@@ -4,10 +4,10 @@ interface
 
 uses
   Windows, Messages, SysUtils, Variants, Classes, Graphics,
-  Controls, Forms, Dialogs, StdCtrls, System.JSON,
+  Controls, Forms, Dialogs, StdCtrls, uDWJSONObject, System.JSON,
   DB, memds, Grids, DBGrids, uRESTDWBase, FireDAC.Stan.Intf,
   FireDAC.Stan.Option, FireDAC.Stan.Param, FireDAC.Stan.Error, FireDAC.DatS,
-  FireDAC.Phys.Intf, FireDAC.DApt.Intf, FireDAC.Comp.DataSet,
+  FireDAC.Phys.Intf, FireDAC.DApt.Intf, FireDAC.Comp.DataSet, uDWJSONTools,
   FireDAC.Comp.Client, uDWConsts, Vcl.ExtCtrls, Vcl.Imaging.pngimage;
 
 type
@@ -15,23 +15,11 @@ type
   { TForm2 }
 
   TForm2 = class(TForm)
-    btnPut: TButton;
-    btnGet: TButton;
-    btnPost: TButton;
-    btnDelete: TButton;
     eHost: TEdit;
     ePort: TEdit;
     Label4: TLabel;
     Label5: TLabel;
-    Memo1: TMemo;
-    Label1: TLabel;
-    Memo2: TMemo;
-    Label2: TLabel;
-    DBGrid1: TDBGrid;
-    Label3: TLabel;
     DataSource1: TDataSource;
-    btnIDHttpGetTest: TButton;
-    btnIDHttpPostTeste: TButton;
     RESTClientPooler1: TRESTClientPooler;
     MemDataset1: TFDMemTable;
     Image1: TImage;
@@ -41,12 +29,15 @@ type
     Label6: TLabel;
     edUserNameDW: TEdit;
     Label8: TLabel;
-    procedure btnPutClick(Sender: TObject);
+    Bevel2: TBevel;
+    Label1: TLabel;
+    Bevel3: TBevel;
+    Label2: TLabel;
+    DBGrid1: TDBGrid;
+    mComando: TMemo;
+    Button1: TButton;
     procedure btnGetClick(Sender: TObject);
-    procedure btnPostClick(Sender: TObject);
-    procedure btnDeleteClick(Sender: TObject);
-    procedure btnIDHttpGetTestClick(Sender: TObject);
-    procedure btnIDHttpPostTesteClick(Sender: TObject);
+    procedure Button1Click(Sender: TObject);
   private
     { Private declarations }
     procedure ListAlunos(Value : String);
@@ -59,11 +50,39 @@ var
 
 implementation
 
-{$IFDEF LCL}
+{$IFDEF FPC}
 {$R *.lfm}
 {$ELSE}
 {$R *.dfm}
 {$ENDIF}
+
+procedure TForm2.Button1Click(Sender: TObject);
+Var
+ lResponse,
+ SQL : String;
+ JSONValue : uDWJSONObject.TJSONValue;
+Begin
+ RESTClientPooler1.Host     := eHost.Text;
+ RESTClientPooler1.Port     := StrToInt(ePort.Text);
+ RESTClientPooler1.UserName := edUserNameDW.Text;
+ RESTClientPooler1.Password := edPasswordDW.Text;
+ SQL := mComando.Text;
+ If SQL <> '' Then
+  Begin
+   Try
+    RESTClientPooler1.Host := eHost.Text;
+    RESTClientPooler1.Port := StrToInt(ePort.Text);
+    lResponse := RESTClientPooler1.SendEvent('ConsultaBanco/' + EncodeStrings(SQL{$IFNDEF FPC}, GetEncoding(RESTClientPooler1.Encoding){$ENDIF}));
+    JSONValue := uDWJSONObject.TJSONValue.Create;
+    Try
+     JSONValue.WriteToDataset(dtFull, lResponse, MemDataset1);
+    Finally
+     JSONValue.Free;
+    End;
+   Except
+   End;
+  End;
+End;
 
 procedure TForm2.ListAlunos(Value : String);
 Var
@@ -77,8 +96,6 @@ begin
   Except
    Exit;
   End;
-  Memo1.Lines.Clear;
-  Memo1.Lines.add(lResponse);
  Finally
   If lResponse <> '' Then
    Begin
@@ -106,29 +123,10 @@ end;
 
 
 procedure TForm2.btnGetClick(Sender: TObject);
-Var
- lResponse,
- Aluno : String;
 Begin
- RESTClientPooler1.Host     := eHost.Text;
- RESTClientPooler1.Port     := StrToInt(ePort.Text);
- RESTClientPooler1.UserName := edUserNameDW.Text;
- RESTClientPooler1.Password := edPasswordDW.Text;
- Aluno := InputBox('Rest Client', 'Nome do aluno', '');
- If Aluno <> '' Then
-  Begin
-   Try
-    RESTClientPooler1.Host := eHost.Text;
-    RESTClientPooler1.Port := StrToInt(ePort.Text);
-    lResponse := RESTClientPooler1.SendEvent('ConsultaAluno/' + Aluno);
-    Memo2.Lines.Clear;
-    Memo2.Lines.add(lResponse);
-    ListAlunos(Aluno);
-   Except
-   End;
-  End;
-End;
 
+End;
+{
 procedure TForm2.btnPostClick(Sender: TObject);
 Var
  eventData,
@@ -263,5 +261,5 @@ Begin
   lParams.Free;
  End;
 End;
-
+}
 end.
