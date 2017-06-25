@@ -23,8 +23,8 @@ unit uRESTDWBase;
 interface
 
 Uses
-     {$IFDEF LCL}
-     SysUtils,         Classes, SysTypes, ServerUtils, Windows,
+     {$IFDEF FPC}
+     SysUtils,         Classes, SysTypes, ServerUtils, {$IFDEF WINDOWS}Windows,{$ENDIF}
      IdContext,        IdHTTPServer,      IdCustomHTTPServer,    IdSSLOpenSSL, IdSSL,
      IdAuthentication, IdHTTPHeaderInfo,  uDWJSONTools,          uDWConsts,    IdHTTP;
      {$ELSE}
@@ -187,9 +187,9 @@ Begin
  SetParams;
  Try
   If Pos(Uppercase(Format(UrlBase, [vTpRequest, vHost, vPort])), Uppercase(EventData)) = 0 Then
-   vURL := LowerCase(Format(UrlBase, [vTpRequest, vHost, vPort]) + EventData)
+   vURL := LowerCase(Format(UrlBase, [vTpRequest, vHost, vPort])) + EventData
   Else
-   vURL := LowerCase(EventData);
+   vURL := EventData;
   If vRSCharset = esUtf8 Then
    HttpRequest.Request.Charset := 'utf-8'
   Else If vRSCharset = esASCII Then
@@ -432,7 +432,7 @@ Begin
  vProxyOptions                   := TProxyOptions.Create;
  HTTPServer                      := TIdHTTPServer.Create(Nil);
  lHandler                        := TIdServerIOHandlerSSLOpenSSL.Create;
- {$IFDEF LCL}
+ {$IFDEF FPC}
  HTTPServer.OnCommandGet         := @aCommandGet;
  HTTPServer.OnCommandOther       := @aCommandOther;
  {$ELSE}
@@ -446,7 +446,7 @@ Begin
  vServerParams.Password          := 'testserver';
  vServerContext                  := 'restdataware';
  VEncondig                       := esUtf8;
- InitializeCriticalSection(vCriticalSection);
+ {$IFDEF WINDOWS}InitializeCriticalSection(vCriticalSection);{$ENDIF}
 End;
 
 Destructor TRESTServicePooler.Destroy;
@@ -456,7 +456,7 @@ Begin
  HTTPServer.Free;
  vServerParams.Free;
  lHandler.Free;
- DeleteCriticalSection(vCriticalSection);
+ {$IFDEF WINDOWS}DeleteCriticalSection(vCriticalSection);{$ENDIF}
  Inherited;
 End;
 
@@ -481,7 +481,7 @@ Begin
        (ASSLCertFile <> '')           Then
      Begin
       lHandler.SSLOptions.Method                := aSSLVersion;
-      {$IFDEF LCL}
+      {$IFDEF FPC}
       lHandler.OnGetPassword                    := @GetSSLPassword;
       {$ELSE}
       lHandler.OnGetPassword                    := GetSSLPassword;
