@@ -1,0 +1,6 @@
+*.dcu
+*.local
+*.skincfg
+*.stat
+*.o
+*.ppu
