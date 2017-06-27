@@ -3,10 +3,10 @@ unit uDWJSONObject;
 interface
 
 Uses {$IFDEF FPC}
-     SysUtils, SysTypes, Classes, uDWJSONTools, uDWConsts, IdGlobal, uKBDynamic, DB,
+     SysUtils, Classes, uDWJSONTools, uDWConsts, IdGlobal, uKBDynamic, DB,
      uDWJSONParser;
      {$ELSE}
-     System.SysUtils, SysTypes,   System.Classes, uDWJSONTools, uDWConsts, uDWJSONParser,
+     System.SysUtils, System.Classes, uDWJSONTools, uDWConsts, uDWJSONParser,
      IdGlobal,        uKBDynamic, System.Rtti,    Data.DB,      Soap.EncdDecd;
      {$ENDIF}
 
@@ -16,16 +16,16 @@ Type
 
  TJSONValue = Class
  Private
-  vtagName                           : String;
-  vTypeObject                        : TTypeObject;
-  vObjectDirection                   : TObjectDirection;
-  vObjectValue                       : TObjectValue;
-  aValue                             : TIdBytes;
-  vEncoding                          : TEncoding;
-  Function    GetValue               : String;
-  Procedure   WriteValue     (bValue : String);
-  Function    FormatValue    (bValue : String)        : String;
-  Function    GetValueJSON   (bValue : String)        : String;
+  vtagName            : String;
+  vTypeObject         : TTypeObject;
+  vObjectDirection    : TObjectDirection;
+  vObjectValue        : TObjectValue;
+  aValue              : TIdBytes;
+  vEncoding           : TEncoding;
+  Function    GetValue                    : String;
+  Procedure   WriteValue     (bValue      : String);
+  Function    FormatValue    (bValue      : String)   : String;
+  Function    GetValueJSON   (bValue      : String)   : String;
   Function    DatasetValues  (bValue      : TDataset) : String;
  Public
   Procedure   ToStream       (Var bValue  : TMemoryStream);
@@ -34,7 +34,8 @@ Type
   Procedure   WriteToDataset (DatasetType : TDatasetType;
                               JSONValue   : String;
                               DestDS      : TDataset);
-  Procedure   LoadFromJSON   (bValue       : String);
+  Procedure   LoadFromJSON   (bValue      : String);
+  Function    ToJSON                      : String;
   Constructor Create;
   Destructor  Destroy;Override;
   Property    TypeObject                  : TTypeObject      Read vTypeObject      Write vTypeObject;
@@ -54,12 +55,16 @@ Type
   vObjectDirection                   : TObjectDirection;
   vObjectValue                       : TObjectValue;
   vParamName                         : String;
+  Function    FormatValue    (bValue : String) : String;
   Function    GetValue               : String;
   Procedure   WriteValue     (bValue : String);
   Procedure   SetParamName   (bValue : String);
+  Function    GetValueJSON   (bValue : String) : String;
  Public
   Constructor Create(Encoding : TEncoding);
   Destructor  Destroy;Override;
+  Procedure   FromJSON(JSON : String; DecodeValue : Boolean = True);
+  Function    ToJSON        : String;
   Property    ObjectDirection             : TObjectDirection Read vObjectDirection Write vObjectDirection;
   Property    ObjectValue                 : TObjectValue     Read vObjectValue     Write vObjectValue;
   Property    Value                       : String           Read GetValue         Write WriteValue;
@@ -70,14 +75,19 @@ Type
  TDWParams = Class(TList)
  Private
   vEncoding  : TEncoding;
-  Function  GetRec(Index    : Integer)      : TJSONParam; Overload;
-  Procedure PutRec(Index    : Integer; Item : TJSONParam);Overload;
+  Function  GetRec(Index    : Integer)         : TJSONParam; Overload;
+  Procedure PutRec(Index    : Integer;    Item : TJSONParam);Overload;
+  Function  GetRecName(Index    : String)      : TJSONParam; Overload;
+  Procedure PutRecName(Index    : String; Item : TJSONParam);Overload;
  Public
   Constructor Create;
-  Procedure Delete(Index : Integer);                      Overload;
-  Function  Add   (Item  : TJSONParam) : Integer;         Overload;
-  Property  Items[Index  : Integer]    : TJSONParam  Read GetRec    Write PutRec; Default;
-  Property  Encoding                   : TEncoding   Read vEncoding Write vEncoding;
+  Function  ToJSON(ObjectDirection : TObjectDirection = odINOUT) : String;
+  Procedure FromJSON(JSON : String);
+  Procedure Delete      (Index : Integer);                 Overload;
+  Function  Add         (Item  : TJSONParam) : Integer;    Overload;
+  Property  Items      [Index  : Integer]    : TJSONParam  Read GetRec     Write PutRec;Default;
+  Property  ItemsString[Index  : String]     : TJSONParam  Read GetRecName Write PutRecName;
+  Property  Encoding           : TEncoding                 Read vEncoding  Write vEncoding;
 End;
 
 implementation
@@ -98,6 +108,27 @@ Begin
  vEncoding := TEncoding.ANSI;
 End;
 
+Function  TDWParams.ToJSON(ObjectDirection : TObjectDirection = odINOUT) : String;
+Var
+ I : Integer;
+Begin
+ For I := 0 To Self.Count -1 Do
+  Begin
+   If TJSONParam(TList(Self).Items[I]^).ObjectDirection = ObjectDirection Then
+    Begin
+     If I = 0 Then
+      Result := TJSONParam(TList(Self).Items[I]^).ToJSON
+     Else
+      Result := Result + ', ' + TJSONParam(TList(Self).Items[I]^).ToJSON;
+    End;
+  End;
+End;
+
+Procedure TDWParams.FromJSON(JSON : String);
+Begin
+
+End;
+
 Procedure TDWParams.Delete(Index : Integer);
 Begin
  If (Index < Self.Count) And (Index > -1) Then
@@ -115,10 +146,39 @@ Begin
   Result := TJSONParam(TList(Self).Items[Index]^);
 End;
 
+Function TDWParams.GetRecName(Index : String) : TJSONParam;
+Var
+ I : Integer;
+Begin
+ Result := Nil;
+ For I := 0 To Self.Count -1 Do
+  Begin
+   If (Uppercase(Index) = Uppercase(TJSONParam(TList(Self).Items[I]^).vParamName)) Then
+    Begin
+     Result := TJSONParam(TList(Self).Items[I]^);
+     Break;
+    End;
+  End;
+End;
+
 Procedure TDWParams.PutRec(Index : Integer; Item : TJSONParam);
 Begin
  If (Index < Self.Count) And (Index > -1) Then
   TJSONParam(TList(Self).Items[Index]^) := Item;
+End;
+
+procedure TDWParams.PutRecName(Index: String; Item: TJSONParam);
+Var
+ I : Integer;
+Begin
+ For I := 0 To Self.Count -1 Do
+  Begin
+   If (Uppercase(Index) = Uppercase(TJSONParam(TList(Self).Items[I]^).vParamName)) Then
+    Begin
+     TJSONParam(TList(Self).Items[I]^) := Item;
+     Break;
+    End;
+  End;
 End;
 
 Function EscapeQuotes(Const S : String) : String;
@@ -158,23 +218,14 @@ Begin
  If vObjectValue In [ovString, ovFixedChar,   ovWideString,
                      ovFixedWideChar, ovDate, ovTime,
                      ovDateTime]  Then
-  Result := '"' + EscapeQuotes(bValue) + '"';
+  Result := bValue;
 End;
 
-function TJSONValue.FormatValue(bValue: String): String;
+Function TJSONValue.FormatValue(bValue: String): String;
 Var
  aResult  : String;
 Begin
- If vObjectValue In [ovMemo, ovGraphic, ovFmtMemo,
-                     ovParadoxOle,      ovDBaseOle,
-                     ovTypedBinary,     ovCursor,
-                     ovDataSet,         ovOraBlob,
-                     ovOraClob,         ovWideMemo,
-                     ovParams,          ovStream]  Then
-  //Encode String Base64 Here
-  aResult := EncodeStrings(bValue{$IFNDEF FPC}, vEncoding{$ENDIF})
- Else
-  aResult := bValue;
+ aResult  := bValue;
  If vTypeObject = toDataset Then
   Result  := Format(TValueFormatJSON, ['ObjectType', GetObjectName(vTypeObject),
                                        'Direction',  GetDirectionName(vObjectDirection),
@@ -188,8 +239,21 @@ Begin
 End;
 
 function TJSONValue.GetValue: String;
+Var
+ vTempString : String;
 Begin
- Result := vEncoding.GetString(TBytes(aValue));
+ vTempString := vEncoding.GetString(TBytes(aValue));
+ If vObjectValue = ovString Then
+  Begin
+   If Pos('"', vTempString) > 0 Then
+    Begin
+     Delete(vTempString, 1, 1);
+     Delete(vTempString, Length(vTempString), 1);
+     Result := vTempString;
+    End;
+  End
+ Else
+  Result := vTempString;
 End;
 
 function TJSONValue.DatasetValues(bValue: TDataset): String;
@@ -258,7 +322,7 @@ Var
       If bValue.Fields[I].DataType in [ftString, ftWideString, ftFixedWideChar, ftFixedChar] Then
        vTempValue := Format('"%s"', [EncodeStrings(bValue.Fields[I].AsString{$IFNDEF FPC}, vEncoding{$ENDIF})])
       Else
-       vTempValue := Format('"%s"', [EscapeQuotes(bValue.Fields[I].AsString)]);
+       vTempValue := Format('"%s"', [bValue.Fields[I].AsString]);
      End;
     If I = 0 Then
      Result := vTempValue
@@ -293,11 +357,13 @@ Begin
  vObjectDirection := odINOUT;
  vObjectValue     := ovDataSet;
  vtagName         := lowercase(TableName);
- vTagGeral        := Format(TValueFormatJSON, ['ObjectType', GetObjectName(vTypeObject),
-                                               'Direction',  GetDirectionName(vObjectDirection),
-                                               'ValueType',  GetValueType(vObjectValue),
-                                               vtagName,     DatasetValues(bValue)]);
- aValue := tIdBytes(vEncoding.GetBytes(vTagGeral));
+ vTagGeral        := DatasetValues(bValue);
+ aValue           := tIdBytes(vEncoding.GetBytes(vTagGeral));
+End;
+
+Function TJSONValue.ToJSON : String;
+Begin
+ Result := FormatValue(vEncoding.GetString(TBytes(aValue)));
 End;
 
 procedure TJSONValue.ToStream(var bValue: TMemoryStream);
@@ -371,87 +437,95 @@ begin
  ClearJsonParser(JsonParser);
  Try
   ParseJson(JsonParser, JSONValue);
-  bJsonValue       := JsonParser.Output.Objects[0];
-  vTypeObject      := GetObjectName   (bJsonValue[0].Value.Value);
-  vObjectDirection := GetDirectionName(bJsonValue[1].Value.Value);
-  vObjectValue     := GetValueType    (bJsonValue[2].Value.Value);
-  vtagName         := Lowercase       (bJsonValue[3].Key);
-  //Add Field Defs
-  DestDS.DisableControls;
-  If DestDS.Active Then
-   DestDS.Close;
-  DestDS.FieldDefs.Clear;
-  {$IFDEF FPC}
-  DestDS.Fields.Clear;
-  {$ENDIF}
-  For J := 1 To Length(JsonParser.Output.Objects) -1 Do
+  If Length(JsonParser.Output.Objects) > 0 Then
    Begin
-    bJsonValue         := JsonParser.Output.Objects[J];
-    FieldDef           := DestDS.FieldDefs.AddFieldDef;
-    FieldDef.Name      := bJsonValue[0].Value.Value;
-    FieldDef.DataType  := GetFieldType(bJsonValue[1].Value.Value);
-    FieldDef.Required  := UpperCase(bJsonValue[3].Value.Value) = 'S';
-    If Not(FieldDef.DataType In [ftFloat, ftCurrency, ftBCD, ftFMTBcd]) Then
+    bJsonValue       := JsonParser.Output.Objects[0];
+    vTypeObject      := GetObjectName   (bJsonValue[0].Value.Value);
+    vObjectDirection := GetDirectionName(bJsonValue[1].Value.Value);
+    vObjectValue     := GetValueType    (bJsonValue[2].Value.Value);
+    vtagName         := Lowercase       (bJsonValue[3].Key);
+    //Add Field Defs
+    DestDS.DisableControls;
+    If DestDS.Active Then
+     DestDS.Close;
+    DestDS.FieldDefs.Clear;
+    {$IFDEF FPC}
+    DestDS.Fields.Clear;
+    {$ENDIF}
+    For J := 1 To Length(JsonParser.Output.Objects) -1 Do
      Begin
-      FieldDef.Size      := StrToInt(bJsonValue[4].Value.Value);
-      FieldDef.Precision := StrToInt(bJsonValue[5].Value.Value);
-     End;
-   End;
-  DestDS.Open;
-  //Add Set PK Fields
-  For J := 1 To Length(JsonParser.Output.Objects) -1 Do
-   Begin
-    bJsonValue         := JsonParser.Output.Objects[J];
-    If UpperCase(bJsonValue[2].Value.Value) = 'S' Then
-     Begin
-      Field := DestDS.FieldByName(bJsonValue[0].Value.Value);
-      If Field <> Nil Then
-       Field.ProviderFlags := [pfInUpdate, pfInWhere, pfInKey];
-     End;
-   End;
-  For J := 3 To Length(JsonParser.Output.Arrays) -1 Do
-   Begin
-    JsonArray  := JsonParser.Output.Arrays[J];
-    DestDS.Append;
-    For I := 0 To Length(JsonArray) -1 Do
-     Begin
-      If DestDS.Fields[I].DataType In [ftMemo, ftGraphic, ftFmtMemo,
-                                       ftParadoxOle,      ftDBaseOle,
-                                       ftTypedBinary,     ftCursor,
-                                       ftDataSet,         ftOraBlob,
-                                       ftOraClob,         ftWideMemo
-                                       {$IFNDEF FPC}
-                                       ,ftParams,         ftStream{$ENDIF}]  Then
+      bJsonValue         := JsonParser.Output.Objects[J];
+      FieldDef           := DestDS.FieldDefs.AddFieldDef;
+      FieldDef.Name      := bJsonValue[0].Value.Value;
+      FieldDef.DataType  := GetFieldType(bJsonValue[1].Value.Value);
+      FieldDef.Required  := UpperCase(bJsonValue[3].Value.Value) = 'S';
+      If Not(FieldDef.DataType In [ftFloat, ftCurrency, ftBCD, ftFMTBcd]) Then
        Begin
-        vBlobStream := TStringStream.Create(DecodeStrings(JsonArray[I].Value{$IFNDEF FPC}, vEncoding{$ENDIF}));
-        Try
-         vBlobStream.Position := 0;
-         DestDS.CreateBlobStream(DestDS.Fields[I], bmWrite);
-        Finally
-         {$IFNDEF FPC}
-         vBlobStream.Clear;
-         {$ENDIF}
-         vBlobStream.Free;
-        End;
-       End
-      Else
+        FieldDef.Size      := StrToInt(bJsonValue[4].Value.Value);
+        FieldDef.Precision := StrToInt(bJsonValue[5].Value.Value);
+       End;
+     End;
+    DestDS.Open;
+    //Add Set PK Fields
+    For J := 1 To Length(JsonParser.Output.Objects) -1 Do
+     Begin
+      bJsonValue         := JsonParser.Output.Objects[J];
+      If UpperCase(bJsonValue[2].Value.Value) = 'S' Then
        Begin
-        If JsonArray[I].Value <> '' Then
+        Field := DestDS.FieldByName(bJsonValue[0].Value.Value);
+        If Field <> Nil Then
+         Field.ProviderFlags := [pfInUpdate, pfInWhere, pfInKey];
+       End;
+     End;
+    For J := 3 To Length(JsonParser.Output.Arrays) -1 Do
+     Begin
+      JsonArray  := JsonParser.Output.Arrays[J];
+      DestDS.Append;
+      For I := 0 To Length(JsonArray) -1 Do
+       Begin
+        If DestDS.Fields[I].DataType In [ftMemo, ftGraphic, ftFmtMemo,
+                                         ftParadoxOle,      ftDBaseOle,
+                                         ftTypedBinary,     ftCursor,
+                                         ftDataSet,         ftOraBlob,
+                                         ftOraClob,         ftWideMemo
+                                         {$IFNDEF FPC}
+                                         ,ftParams,         ftStream{$ENDIF}]  Then
          Begin
-          If DestDS.Fields[I].DataType in [ftString, ftWideString, ftFixedWideChar, ftFixedChar] Then
-           DestDS.Fields[I].AsString := DecodeStrings(JsonArray[I].Value{$IFNDEF FPC}, vEncoding{$ENDIF})
-          Else
+          vBlobStream := TStringStream.Create(DecodeStrings(JsonArray[I].Value{$IFNDEF FPC}, vEncoding{$ENDIF}));
+          Try
+           vBlobStream.Position := 0;
+           DestDS.CreateBlobStream(DestDS.Fields[I], bmWrite);
+          Finally
+           {$IFNDEF FPC}
+           vBlobStream.Clear;
+           {$ENDIF}
+           vBlobStream.Free;
+          End;
+         End
+        Else
+         Begin
+          If JsonArray[I].Value <> '' Then
            Begin
-            {$IFNDEF FPC}
-            DestDS.Fields[I].Value := JsonArray[I].Value;
-            {$ELSE}
-            SetValue(DestDS.Fields[I], JsonArray[I].Value);
-            {$ENDIF}
+            If DestDS.Fields[I].DataType in [ftString, ftWideString, ftFixedWideChar, ftFixedChar] Then
+             DestDS.Fields[I].AsString := DecodeStrings(JsonArray[I].Value{$IFNDEF FPC}, vEncoding{$ENDIF})
+            Else
+             Begin
+              {$IFNDEF FPC}
+              DestDS.Fields[I].Value := JsonArray[I].Value;
+              {$ELSE}
+              SetValue(DestDS.Fields[I], JsonArray[I].Value);
+              {$ENDIF}
+             End;
            End;
          End;
        End;
+      DestDS.Post;
      End;
-    DestDS.Post;
+   End
+  Else
+   Begin
+    DestDS.Close;
+    Raise Exception.Create('Invalid JSON Data...');
    End;
  Finally
   If DestDS.Active Then
@@ -483,7 +557,10 @@ End;
 procedure TJSONValue.WriteValue(bValue: String);
 Begin
  SetLength(aValue, 0);
- aValue := tIdBytes(vEncoding.GetBytes(FormatValue(bValue)));
+ If vObjectValue = ovString Then
+  aValue := tIdBytes(vEncoding.GetBytes(Format(TJsonStringValue, [bValue])))
+ Else
+  aValue := tIdBytes(vEncoding.GetBytes(bValue));
 End;
 
 { TJSONParam }
@@ -503,6 +580,57 @@ Begin
  inherited;
 End;
 
+Function TJSONParam.FormatValue(bValue: String): String;
+Var
+ aResult  : String;
+Begin
+ aResult  := bValue;
+ If vTypeObject = toDataset Then
+  Result  := Format(TValueFormatJSON, ['ObjectType', GetObjectName(vTypeObject),
+                                       'Direction',  GetDirectionName(vObjectDirection),
+                                       'ValueType',  GetValueType(vObjectValue),
+                                       vParamName,   GetValueJSON(aResult)])
+ Else
+  Result  := Format(TValueFormatJSONValue, ['ObjectType', GetObjectName(vTypeObject),
+                                            'Direction',  GetDirectionName(vObjectDirection),
+                                            'ValueType',  GetValueType(vObjectValue),
+                                            vParamName,   GetValueJSON(aResult)])
+End;
+
+function TJSONParam.GetValueJSON(bValue : String): String;
+Begin
+ Result := bValue;
+ If vObjectValue In [ovString, ovFixedChar,   ovWideString,
+                     ovFixedWideChar, ovDate, ovTime,
+                     ovDateTime]  Then
+  Result := '"' + bValue + '"';
+End;
+
+Procedure TJSONParam.FromJSON(JSON: String; DecodeValue : Boolean = True);
+Var
+ JsonParser  : TJsonParser;
+ bJsonValue  : TJsonObject;
+Begin
+ ClearJsonParser(JsonParser);
+ Try
+  ParseJson(JsonParser, JSON);
+  If Length(JsonParser.Output.Objects) > 0 Then
+   Begin
+    bJsonValue       := JsonParser.Output.Objects[0];
+    vTypeObject      := GetObjectName   (bJsonValue[0].Value.Value);
+    vObjectDirection := GetDirectionName(bJsonValue[1].Value.Value);
+    vObjectValue     := GetValueType    (bJsonValue[2].Value.Value);
+    vParamName       := Lowercase       (bJsonValue[3].Key);
+    If DecodeValue Then
+     WriteValue(DecodeStrings(bJsonValue[3].Value.Value{$IFNDEF FPC}, vEncoding{$ENDIF}))
+    Else
+     WriteValue(bJsonValue[3].Value.Value);
+   End;
+ Finally
+
+ End;
+End;
+
 Function TJSONParam.GetValue: String;
 Begin
  Result := vJSONValue.Value;
@@ -511,6 +639,11 @@ End;
 procedure TJSONParam.SetParamName(bValue: String);
 begin
  vParamName := Uppercase(bValue);
+end;
+
+Function TJSONParam.ToJSON: String;
+begin
+ Result := vJSONValue.ToJSON;
 end;
 
 procedure TJSONParam.WriteValue(bValue: String);
