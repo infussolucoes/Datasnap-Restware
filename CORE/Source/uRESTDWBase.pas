@@ -26,11 +26,13 @@ Uses
      {$IFDEF FPC}
      SysUtils,         Classes, SysTypes, ServerUtils, {$IFDEF WINDOWS}Windows,{$ENDIF}
      IdContext,        IdHTTPServer,      IdCustomHTTPServer,    IdSSLOpenSSL, IdSSL,
-     IdAuthentication, IdHTTPHeaderInfo,  uDWJSONTools,          uDWConsts,    IdHTTP;
+     IdAuthentication, IdHTTPHeaderInfo,  uDWJSONTools,          uDWConsts,    IdHTTP,
+     uDWJSONObject;
      {$ELSE}
      System.SysUtils,  System.Classes,   SysTypes, ServerUtils, Windows,
      IdContext,        IdHTTPServer,     IdCustomHTTPServer,    IdSSLOpenSSL, IdSSL,
-     IdAuthentication, IdHTTPHeaderInfo, uDWJSONTools,          uDWConsts,    IdHTTP;
+     IdAuthentication, IdHTTPHeaderInfo, uDWJSONTools,          uDWConsts,    IdHTTP,
+     uDWJSONObject;
      {$ENDIF}
 
 Type
@@ -77,7 +79,9 @@ Type
   vServerParams    : TServerParams;
   vLastRequest     : TLastRequest;
   vLastResponse    : TLastResponse;
+  {$IFDEF FPC} {$IFDEF WINDOWS}
   vCriticalSection : TRTLCriticalSection;
+  {$ENDIF}{$ENDIF}
   lHandler         : TIdServerIOHandlerSSLOpenSSL;
   aSSLVersion      : TIdSSLVersion;
   vServerContext,
@@ -133,6 +137,8 @@ Type
   Function    SendEvent(EventData : String;
                         RBody     : TStringList;
                         EventType : TSendEvent = sePOST) : String;Overload;
+  Function    SendEvent(EventData : String;
+                        Params    : TDWParams)         : String;Overload;
   Constructor Create(AOwner: TComponent);Override;
   Destructor  Destroy;Override;
  Published
@@ -195,15 +201,23 @@ Begin
   Else If vRSCharset = esASCII Then
    HttpRequest.Request.Charset := 'ansi';
   Case EventType Of
-   seGET : Result := HttpRequest.Get(vURL);
+   seGET :
+    Begin
+     HttpRequest.Request.ContentType := 'application/json';
+     Result := HttpRequest.Get(vURL);
+    End;
    sePOST,
    sePUT,
    seDELETE :
     Begin;
      If EventType = sePOST Then
-      Result := HttpRequest.Post(vURL, RBody)
+      Begin
+       HttpRequest.Request.ContentType := 'application/x-www-form-urlencoded';
+       Result := HttpRequest.Post(vURL, RBody);
+      End
      Else If EventType = sePUT Then
       Begin
+       HttpRequest.Request.ContentType := 'application/x-www-form-urlencoded';
        StringStream := TStringStream.Create(RBody.Text);
        Result := HttpRequest.Put(vURL, StringStream);
        StringStream.Free;
@@ -211,6 +225,7 @@ Begin
      Else If EventType = seDELETE Then
       Begin
        Try
+         HttpRequest.Request.ContentType := 'application/json';
          HttpRequest.Delete(vURL);
          Result := GetPairJSON('OK', 'DELETE COMMAND OK');
        Except
@@ -334,10 +349,14 @@ Begin
      Try
       If Assigned(vLastRequest) Then
        Begin
+        {$IFDEF FPC} {$IFDEF WINDOWS}
         EnterCriticalSection(vCriticalSection);
+        {$ENDIF}{$ENDIF}
         vLastRequest(ARequestInfo.UserAgent + #13#10 +
                      ARequestInfo.RawHTTPCommand);
+        {$IFDEF FPC} {$IFDEF WINDOWS}
         LeaveCriticalSection(vCriticalSection);
+        {$ENDIF}{$ENDIF}
        End;
       If Assigned(vServerMethod) Then
        Begin
@@ -352,9 +371,13 @@ Begin
       AResponseInfo.ContentText := JSONStr;
       If Assigned(vLastResponse) Then
        Begin
+        {$IFDEF FPC} {$IFDEF WINDOWS}
         EnterCriticalSection(vCriticalSection);
+        {$ENDIF}{$ENDIF}
         vLastResponse(AResponseInfo.ContentText);
+        {$IFDEF FPC} {$IFDEF WINDOWS}
         LeaveCriticalSection(vCriticalSection);
+        {$ENDIF}{$ENDIF}
        End;
       AResponseInfo.WriteContent;
      Finally
@@ -396,10 +419,14 @@ Begin
    Try
     If Assigned(vLastRequest) Then
      Begin
+      {$IFDEF FPC} {$IFDEF WINDOWS}
       EnterCriticalSection(vCriticalSection);
+      {$ENDIF}{$ENDIF}
       vLastRequest(ARequestInfo.UserAgent + #13#10 +
                    ARequestInfo.RawHTTPCommand);
+      {$IFDEF FPC} {$IFDEF WINDOWS}
       LeaveCriticalSection(vCriticalSection);
+      {$ENDIF}{$ENDIF}
      End;
     If Assigned(vServerMethod) Then
      Begin
@@ -414,9 +441,13 @@ Begin
     AResponseInfo.ContentText := JSONStr;
     If Assigned(vLastResponse) Then
      Begin
+      {$IFDEF FPC} {$IFDEF WINDOWS}
       EnterCriticalSection(vCriticalSection);
+      {$ENDIF}{$ENDIF}
       vLastResponse(AResponseInfo.ContentText);
+      {$IFDEF FPC} {$IFDEF WINDOWS}
       LeaveCriticalSection(vCriticalSection);
+      {$ENDIF}{$ENDIF}
      End;
     AResponseInfo.WriteContent;
    Finally
@@ -446,7 +477,9 @@ Begin
  vServerParams.Password          := 'testserver';
  vServerContext                  := 'restdataware';
  VEncondig                       := esUtf8;
- {$IFDEF WINDOWS}InitializeCriticalSection(vCriticalSection);{$ENDIF}
+ {$IFDEF FPC} {$IFDEF WINDOWS}
+ InitializeCriticalSection(vCriticalSection);
+ {$ENDIF}{$ENDIF}
 End;
 
 Destructor TRESTServicePooler.Destroy;
@@ -456,7 +489,7 @@ Begin
  HTTPServer.Free;
  vServerParams.Free;
  lHandler.Free;
- {$IFDEF WINDOWS}DeleteCriticalSection(vCriticalSection);{$ENDIF}
+ {$IFDEF FPC}{$IFDEF WINDOWS}DeleteCriticalSection(vCriticalSection);{$ENDIF}{$ENDIF}
  Inherited;
 End;
 
@@ -504,6 +537,22 @@ Begin
  Else If Not(Value) Then
   HTTPServer.Active := False;
  vActive := HTTPServer.Active;
+End;
+
+Function TRESTClientPooler.SendEvent(EventData : String;
+                                     Params    : TDWParams): String;
+Var
+ I : Integer;
+ vStringList : TStringList;
+Begin
+ vStringList := TStringList.Create;
+ Try
+  For I := 0 To Params.Count -1 Do
+   vStringList.Add(Format('%s=%s', [Params[I].ParamName, Params[I].Value]));
+  Result := SendEvent(EventData, vStringList, sePOST);
+ Finally
+  vStringList.Free;
+ End;
 End;
 
 end.

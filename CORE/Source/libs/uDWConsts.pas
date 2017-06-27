@@ -11,8 +11,9 @@ Uses {$IFDEF FPC}
 
 Const
  TValueFormatJSON      = '{"%s":"%s", "%s":"%s", "%s":"%s", "%s":[%s]}';
+ TValueFormatJSONValue = '{"%s":"%s", "%s":"%s", "%s":"%s", "%s":%s}';
  TJsonDatasetHeader    = '{"Field":"%s", "Type":"%s", "Primary":"%s", "Required":"%s", "Size":%d, "Precision":%d}';
- TJsonValueFormat      = '[%s]';
+ TJsonValueFormat      = '%s';
  TSepValueMemString    = '\\';
  TQuotedValueMemString = '\"';
  AuthRealm             = 'Provide Authentication';
