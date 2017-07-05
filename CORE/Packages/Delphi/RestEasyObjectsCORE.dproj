@@ -66,10 +66,10 @@
     </PropertyGroup>
     <PropertyGroup Condition="'$(Cfg_1_Win32)'!=''">
         <VerInfo_Locale>1033</VerInfo_Locale>
-        <VerInfo_Build>74</VerInfo_Build>
+        <VerInfo_Build>75</VerInfo_Build>
         <VerInfo_Release>1</VerInfo_Release>
         <VerInfo_AutoIncVersion>true</VerInfo_AutoIncVersion>
-        <VerInfo_Keys>CompanyName=XyberPower Desenvolvimento;FileDescription=$(MSBuildProjectName);FileVersion=1.0.1.74;InternalName=REST Dataware CORE Version;LegalCopyright=REST Dataware CORE Version;LegalTrademarks=REST Dataware;OriginalFilename=;ProgramID=com.embarcadero.$(MSBuildProjectName);ProductName=$(MSBuildProjectName);ProductVersion=1.0.1;Comments=</VerInfo_Keys>
+        <VerInfo_Keys>CompanyName=XyberPower Desenvolvimento;FileDescription=$(MSBuildProjectName);FileVersion=1.0.1.75;InternalName=REST Dataware CORE Version;LegalCopyright=REST Dataware CORE Version;LegalTrademarks=REST Dataware;OriginalFilename=;ProgramID=com.embarcadero.$(MSBuildProjectName);ProductName=$(MSBuildProjectName);ProductVersion=1.0.1;Comments=</VerInfo_Keys>
         <VerInfo_IncludeVerInfo>true</VerInfo_IncludeVerInfo>
         <DCC_RemoteDebug>false</DCC_RemoteDebug>
     </PropertyGroup>
@@ -100,33 +100,33 @@
         <DCCReference Include="..\..\Source\libs\JSON\uDWJSONParser.pas"/>
         <DCCReference Include="..\..\Source\uRESTDWPoolerDB.pas"/>
         <DCCReference Include="..\..\Source\uRESTDWMasterDetailData.pas"/>
-        <RcItem Include="..\..\Images\TRESTServicePooler.bmp">
+        <RcItem Include="..\..\Images\Delphi\TRESTClientPooler.bmp">
             <ResourceType>BITMAP</ResourceType>
-            <ResourceId>TRESTServicePooler</ResourceId>
+            <ResourceId>Bitmap_1</ResourceId>
         </RcItem>
-        <RcItem Include="..\..\Images\TRESTClientPooler.bmp">
+        <RcItem Include="..\..\Images\Delphi\TRESTDWClientSQL.bmp">
             <ResourceType>BITMAP</ResourceType>
-            <ResourceId>TRESTClientPooler</ResourceId>
+            <ResourceId>Bitmap_2</ResourceId>
         </RcItem>
-        <RcItem Include="..\..\Images\TRESTDWClientSQL.bmp">
+        <RcItem Include="..\..\Images\Delphi\TRESTDWDataBase.bmp">
             <ResourceType>BITMAP</ResourceType>
-            <ResourceId>TRESTDWClientSQL</ResourceId>
+            <ResourceId>Bitmap_3</ResourceId>
         </RcItem>
-        <RcItem Include="..\..\Images\TRESTDWDataBase.bmp">
+        <RcItem Include="..\..\Images\Delphi\TRESTDWPoolerDB.bmp">
             <ResourceType>BITMAP</ResourceType>
-            <ResourceId>TRESTDWDataBase</ResourceId>
+            <ResourceId>Bitmap_4</ResourceId>
         </RcItem>
-        <RcItem Include="..\..\Images\TRESTDWPoolerDB.bmp">
+        <RcItem Include="..\..\Images\Delphi\TRESTDWPoolerList.bmp">
             <ResourceType>BITMAP</ResourceType>
-            <ResourceId>TRESTDWPoolerDB</ResourceId>
+            <ResourceId>Bitmap_5</ResourceId>
         </RcItem>
-        <RcItem Include="..\..\Images\TRESTDWPoolerList.bmp">
+        <RcItem Include="..\..\Images\Delphi\TRESTDWStoredProc.bmp">
             <ResourceType>BITMAP</ResourceType>
-            <ResourceId>TRESTDWPoolerList</ResourceId>
+            <ResourceId>Bitmap_6</ResourceId>
         </RcItem>
-        <RcItem Include="..\..\Images\TRESTDWStoredProc.bmp">
+        <RcItem Include="..\..\Images\Delphi\TRESTServicePooler.bmp">
             <ResourceType>BITMAP</ResourceType>
-            <ResourceId>TRESTDWStoredProc</ResourceId>
+            <ResourceId>Bitmap_7</ResourceId>
         </RcItem>
         <BuildConfiguration Include="Release">
             <Key>Cfg_2</Key>
@@ -184,7 +184,16 @@
                         <Overwrite>true</Overwrite>
                     </Platform>
                 </DeployFile>
-                <DeployClass Name="ProjectiOSDeviceResourceRules"/>
+                <DeployClass Name="DependencyModule">
+                    <Platform Name="Win32">
+                        <Operation>0</Operation>
+                        <Extensions>.dll;.bpl</Extensions>
+                    </Platform>
+                    <Platform Name="OSX32">
+                        <Operation>1</Operation>
+                        <Extensions>.dylib</Extensions>
+                    </Platform>
+                </DeployClass>
                 <DeployClass Name="ProjectOSXResource">
                     <Platform Name="OSX32">
                         <RemoteDir>Contents\Resources</RemoteDir>
@@ -523,16 +532,7 @@
                         <Operation>1</Operation>
                     </Platform>
                 </DeployClass>
-                <DeployClass Name="DependencyModule">
-                    <Platform Name="Win32">
-                        <Operation>0</Operation>
-                        <Extensions>.dll;.bpl</Extensions>
-                    </Platform>
-                    <Platform Name="OSX32">
-                        <Operation>1</Operation>
-                        <Extensions>.dylib</Extensions>
-                    </Platform>
-                </DeployClass>
+                <DeployClass Name="ProjectiOSDeviceResourceRules"/>
                 <ProjectRoot Platform="iOSDevice64" Name="$(PROJECTNAME).app"/>
                 <ProjectRoot Platform="Win64" Name="$(PROJECTNAME)"/>
                 <ProjectRoot Platform="iOSDevice32" Name="$(PROJECTNAME).app"/>
@@ -543,7 +543,6 @@
                 <ProjectRoot Platform="iOSSimulator" Name="$(PROJECTNAME).app"/>
             </Deployment>
             <Platforms>
-                <Platform value="Linux64">False</Platform>
                 <Platform value="Win32">True</Platform>
             </Platforms>
         </BorlandProject>
