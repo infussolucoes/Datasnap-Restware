@@ -3,25 +3,26 @@ unit uDWConsts;
 Interface
 
 Uses {$IFDEF FPC}
-     SysUtils, DB;
+     SysUtils, DB, Classes, IdGlobal, IdCoderMIME;
      {$ELSE}
-     System.SysUtils,
-     Data.DB;
+     System.SysUtils, IdGlobal,
+     Data.DB, System.Classes, IdCoderMIME;
      {$ENDIF}
 
 Const
- TSepParams            = '|$%|';
- TValueFormatJSON      = '{"%s":"%s", "%s":"%s", "%s":"%s", "%s":[%s]}';
+ InitStrPos            = 1;
+ TSepParams            = '|xxx|xxx|%';
+ TValueFormatJSON      = '{"%s":"%s", "%s":"%s", "%s":"%s", "%s":"%s", "%s":[%s]}';
  TValueDisp            = '{"PARAMS":[%s], "RESULT":[%s]}';
  TValueArrayJSON       = '[%s]';
- TValueFormatJSONValue = '{"%s":"%s", "%s":"%s", "%s":"%s", "%s":%s}';
+ TValueFormatJSONValue = '{"%s":"%s", "%s":"%s", "%s":"%s", "%s":"%s", "%s":%s}';
  TJsonDatasetHeader    = '{"Field":"%s", "Type":"%s", "Primary":"%s", "Required":"%s", "Size":%d, "Precision":%d}';
  TJsonValueFormat      = '%s';
  TJsonStringValue      = '"%s"';
  TSepValueMemString    = '\\';
  TQuotedValueMemString = '\"';
  AuthRealm             = 'Provide Authentication';
- UrlBase               = '%s://%s:%d/';
+ UrlBase               = '%s://%s:%d/%s';
 
 Type
  TEncodeSelect    = (esASCII,     esUtf8);
@@ -42,22 +43,109 @@ Type
                      ovTimeStampOffset, ovObject,       ovSingle);                                                           //49..51
  TDatasetType     = (dtReflection,      dtFull,         dtDiff);
 
- Function GetEncoding     (Avalue          : TEncodeSelect)    : TEncoding;
- Function GetObjectName   (TypeObject      : TTypeObject)      : String;          Overload;
- Function GetObjectName   (TypeObject      : String)           : TTypeObject;     Overload;
- Function GetDirectionName(ObjectDirection : TObjectDirection) : String;          Overload;
- Function GetDirectionName(ObjectDirection : String)           : TObjectDirection;Overload;
- Function GetValueType    (ObjectValue     : TObjectValue)     : String;          Overload;
- Function GetValueType    (ObjectValue     : String)           : TObjectValue;    Overload;
- Function GetFieldType    (FieldType       : TFieldType)       : String;          Overload;
- Function GetFieldType    (FieldType       : String)           : TFieldType;      Overload;
- Function StringFloat     (aValue          : String)           : String;
+ Function GetEncoding             (Avalue          : TEncodeSelect)    : TEncoding;
+ Function GetObjectName           (TypeObject      : TTypeObject)      : String;          Overload;
+ Function GetObjectName           (TypeObject      : String)           : TTypeObject;     Overload;
+ Function GetDirectionName        (ObjectDirection : TObjectDirection) : String;          Overload;
+ Function GetDirectionName        (ObjectDirection : String)           : TObjectDirection;Overload;
+ Function GetBooleanFromString    (Value           : String)           : Boolean;
+ Function GetStringFromBoolean    (Value           : Boolean)          : String;
+ Function GetValueType            (ObjectValue     : TObjectValue)     : String;          Overload;
+ Function GetValueType            (ObjectValue     : String)           : TObjectValue;    Overload;
+ Function GetFieldType            (FieldType       : TFieldType)       : String;          Overload;
+ Function GetFieldType            (FieldType       : String)           : TFieldType;      Overload;
+ Function StringFloat             (aValue          : String)           : String;
+ Function GenerateStringFromStream(Stream          : TMemoryStream;
+                                   AEncoding       : TEncoding) : String;
+ Function  FileToStr   (Const FileName     : String) : String;
+ Procedure StrToFile   (Const FileName,
+                              SourceString : String);
+ Function  StreamToHex (Stream : TMemoryStream) : String;
+ Procedure HexToStream (Str    : String;
+                        Stream : TMemoryStream);
+ Function StreamToBytes(Stream : TMemoryStream) : tidBytes;
+
 
 implementation
+
+Function StreamToBytes(Stream : TMemoryStream) : tidBytes;
+Begin
+ Try
+  Stream.Position := 0;
+  SetLength  (Result, Stream.Size);
+  Stream.Read(Result[0], Stream.Size);
+ Finally
+ End;
+end;
+
+Procedure HexToStream(Str    : String;
+                      Stream : TMemoryStream);
+Begin
+ Stream.SetSize(Length(Str)    Div 2);
+ HexToBin      (PChar (Str),   Stream.Memory, Stream.Size);
+End;
+
+Function StreamToHex(Stream  : TMemoryStream): string;
+Begin
+ Stream.Position := 0;
+ SetLength     (Result,        Stream.Size * 2);
+ BinToHex      (Stream.Memory, PChar(Result), Stream.Size);
+End;
+
+Function FileToStr(Const FileName : String):string;
+Var
+ Stream : TFileStream;
+Begin
+ Stream:= TFileStream.Create(FileName, fmOpenRead);
+ Try
+  SetLength(Result, Stream.Size);
+  Stream.Position := 0;
+  Stream.ReadBuffer(Pointer(Result)^, Stream.Size);
+ Finally
+  Stream.Free;
+ End;
+End;
+
+Procedure StrToFile(Const FileName, SourceString : string);
+Var
+ Stream : TFileStream;
+Begin
+ If FileExists(FileName) Then
+  DeleteFile(FileName);
+ Stream:= TFileStream.Create(FileName, fmCreate);
+ Try
+  Stream.WriteBuffer(Pointer(SourceString)^, Length(SourceString));
+ Finally
+  Stream.Free;
+ End;
+End;
+
+Function GenerateStringFromStream(Stream : TMemoryStream; AEncoding: TEncoding) : String;
+Var
+ StringStream : TStringStream;
+Begin
+ StringStream := TStringStream.Create(''{$IFNDEF FPC}, AEncoding{$ENDIF});
+ Try
+  Stream.Position       := 0;
+  StringStream.CopyFrom(Stream, Stream.Size);
+  StringStream.Position := 0;
+  Result                := StringStream.DataString;
+ Finally
+  {$IFNDEF FPC}StringStream.Clear;{$ENDIF}
+  StringStream.Free;
+ End;
+End;
 
 Function StringFloat     (aValue          : String)           : String;
 Begin
  Result := StringReplace(aValue, '.', '', [rfReplaceall]);
+End;
+
+Function GetStringFromBoolean(Value       : Boolean)          : String;
+Begin
+ Result := 'false';
+ If Value Then
+  Result := 'true';
 End;
 
 Function GetObjectName   (TypeObject      : TTypeObject)       : String;
@@ -96,6 +184,11 @@ Begin
   odIN    : Result := 'odIN';
   odOUT   : Result := 'odOUT';
  End;
+End;
+
+Function GetBooleanFromString(Value : String) : Boolean;
+Begin
+ Result := Uppercase(Value) = 'TRUE';
 End;
 
 Function GetDirectionName(ObjectDirection : String) : TObjectDirection;
@@ -463,8 +556,8 @@ Function GetEncoding(Avalue : TEncodeSelect) : TEncoding;
 Begin
  Result := TEncoding.utf8;
  Case Avalue of
-  esUtf8  : Result := TEncoding.utf8;
-  esASCII : Result := TEncoding.ASCII;
+  esUtf8 : Result := TEncoding.utf8;
+  esASCII : Result := TEncoding.ANSI;
  End;
 End;
 

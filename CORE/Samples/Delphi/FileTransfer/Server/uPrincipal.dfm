@@ -1,52 +1,25 @@
-object Form2: TForm2
-  Left = 426
-  Top = 153
-  Caption = 'RESTClientPooler Test'
-  ClientHeight = 437
-  ClientWidth = 507
+object fServer: TfServer
+  Left = 0
+  Top = 0
+  BorderIcons = [biSystemMenu, biMinimize]
+  BorderStyle = bsSingle
+  Caption = 'File Transfer Server'
+  ClientHeight = 333
+  ClientWidth = 484
   Color = clBtnFace
   Font.Charset = DEFAULT_CHARSET
   Font.Color = clWindowText
   Font.Height = -11
   Font.Name = 'Tahoma'
   Font.Style = []
-  OldCreateOrder = True
-  Position = poDesktopCenter
+  OldCreateOrder = False
+  Position = poScreenCenter
+  OnCreate = FormCreate
   PixelsPerInch = 96
   TextHeight = 13
-  object Label4: TLabel
-    Left = 13
-    Top = 38
-    Width = 26
-    Height = 13
-    Caption = 'Host'
-    Color = clBtnFace
-    Font.Charset = DEFAULT_CHARSET
-    Font.Color = clWindowText
-    Font.Height = -11
-    Font.Name = 'Tahoma'
-    Font.Style = [fsBold]
-    ParentColor = False
-    ParentFont = False
-  end
-  object Label5: TLabel
-    Left = 155
-    Top = 40
-    Width = 31
-    Height = 13
-    Caption = 'Porta'
-    Color = clBtnFace
-    Font.Charset = DEFAULT_CHARSET
-    Font.Color = clWindowText
-    Font.Height = -11
-    Font.Name = 'Tahoma'
-    Font.Style = [fsBold]
-    ParentColor = False
-    ParentFont = False
-  end
   object Image1: TImage
-    Left = 366
-    Top = 35
+    Left = 341
+    Top = 8
     Width = 133
     Height = 100
     Picture.Data = {
@@ -890,29 +863,9 @@ object Form2: TForm2
       78A2C7BA508FC03148832468101C83D42D0D826390BAA541700C52B7F4BFB752
       4E92F100CAA80000000049454E44AE426082}
   end
-  object Bevel1: TBevel
-    Left = 8
-    Top = 32
-    Width = 491
-    Height = 2
-    Shape = bsTopLine
-  end
-  object Label7: TLabel
-    Left = 8
-    Top = 13
-    Width = 196
-    Height = 13
-    Caption = 'CONFIGURA'#199#195'O SERVIDOR RestDW'
-    Font.Charset = DEFAULT_CHARSET
-    Font.Color = clNavy
-    Font.Height = -11
-    Font.Name = 'Tahoma'
-    Font.Style = [fsBold]
-    ParentFont = False
-  end
-  object Label6: TLabel
-    Left = 123
-    Top = 79
+  object Label3: TLabel
+    Left = 161
+    Top = 39
     Width = 35
     Height = 13
     AutoSize = False
@@ -924,9 +877,29 @@ object Form2: TForm2
     Font.Style = [fsBold]
     ParentFont = False
   end
-  object Label8: TLabel
-    Left = 13
-    Top = 79
+  object Bevel1: TBevel
+    Left = 8
+    Top = 28
+    Width = 329
+    Height = 2
+    Shape = bsTopLine
+  end
+  object Label7: TLabel
+    Left = 7
+    Top = 9
+    Width = 196
+    Height = 13
+    Caption = 'CONFIGURA'#199#195'O SERVIDOR RestDW'
+    Font.Charset = DEFAULT_CHARSET
+    Font.Color = clNavy
+    Font.Height = -11
+    Font.Name = 'Tahoma'
+    Font.Style = [fsBold]
+    ParentFont = False
+  end
+  object Label2: TLabel
+    Left = 54
+    Top = 39
     Width = 43
     Height = 13
     AutoSize = False
@@ -938,164 +911,147 @@ object Form2: TForm2
     Font.Style = [fsBold]
     ParentFont = False
   end
+  object Label4: TLabel
+    Left = 7
+    Top = 39
+    Width = 31
+    Height = 13
+    AutoSize = False
+    Caption = 'Porta'
+    Font.Charset = DEFAULT_CHARSET
+    Font.Color = clWindowText
+    Font.Height = -11
+    Font.Name = 'Tahoma'
+    Font.Style = [fsBold]
+    ParentFont = False
+  end
+  object Label13: TLabel
+    Left = 7
+    Top = 93
+    Width = 103
+    Height = 13
+    Caption = 'ARQUIVOS LOCAIS'
+    Font.Charset = DEFAULT_CHARSET
+    Font.Color = clNavy
+    Font.Height = -11
+    Font.Name = 'Tahoma'
+    Font.Style = [fsBold]
+    ParentFont = False
+  end
   object Bevel2: TBevel
     Left = 8
-    Top = 137
-    Width = 491
+    Top = 112
+    Width = 466
     Height = 2
     Shape = bsTopLine
   end
-  object Label1: TLabel
+  object lbLocalFiles: TListBox
     Left = 8
-    Top = 122
-    Width = 80
-    Height = 13
-    Caption = 'COMANDO SQL'
-    Font.Charset = DEFAULT_CHARSET
-    Font.Color = clNavy
-    Font.Height = -11
-    Font.Name = 'Tahoma'
-    Font.Style = [fsBold]
-    ParentFont = False
-  end
-  object Bevel3: TBevel
-    Left = 8
-    Top = 234
-    Width = 491
-    Height = 2
-    Shape = bsTopLine
-  end
-  object Label2: TLabel
-    Left = 8
-    Top = 219
-    Width = 66
-    Height = 13
-    Caption = 'RESULTADO'
-    Font.Charset = DEFAULT_CHARSET
-    Font.Color = clNavy
-    Font.Height = -11
-    Font.Name = 'Tahoma'
-    Font.Style = [fsBold]
-    ParentFont = False
-  end
-  object eHost: TEdit
-    Left = 13
-    Top = 55
-    Width = 136
-    Height = 21
+    Top = 120
+    Width = 466
+    Height = 206
+    ItemHeight = 13
     TabOrder = 0
-    Text = 'localhost'
   end
-  object ePort: TEdit
-    Left = 155
-    Top = 55
-    Width = 40
-    Height = 21
+  object cbEncode: TCheckBox
+    Left = 233
+    Top = 84
+    Width = 104
+    Height = 19
+    Caption = 'Encode Strings'
+    Checked = True
+    Font.Charset = DEFAULT_CHARSET
+    Font.Color = clWindowText
+    Font.Height = -11
+    Font.Name = 'Tahoma'
+    Font.Style = [fsBold]
+    ParentFont = False
+    State = cbChecked
     TabOrder = 1
-    Text = '8082'
   end
   object edPasswordDW: TEdit
-    Left = 123
-    Top = 97
+    Left = 161
+    Top = 57
     Width = 100
     Height = 21
+    Font.Charset = DEFAULT_CHARSET
+    Font.Color = clWindowText
+    Font.Height = -11
+    Font.Name = 'Tahoma'
+    Font.Style = [fsBold]
+    ParentFont = False
     PasswordChar = '*'
     TabOrder = 2
     Text = 'testserver'
   end
   object edUserNameDW: TEdit
-    Left = 13
-    Top = 97
+    Left = 54
+    Top = 57
     Width = 100
     Height = 21
+    Font.Charset = DEFAULT_CHARSET
+    Font.Color = clWindowText
+    Font.Height = -11
+    Font.Name = 'Tahoma'
+    Font.Style = [fsBold]
+    ParentFont = False
     TabOrder = 3
     Text = 'testserver'
   end
-  object DBGrid1: TDBGrid
-    Left = 8
-    Top = 242
-    Width = 491
-    Height = 187
-    DataSource = DataSource1
+  object edPortaDW: TEdit
+    Left = 7
+    Top = 57
+    Width = 40
+    Height = 21
     Font.Charset = DEFAULT_CHARSET
     Font.Color = clWindowText
     Font.Height = -11
     Font.Name = 'Tahoma'
     Font.Style = [fsBold]
-    Options = [dgTitles, dgIndicator, dgColumnResize, dgColLines, dgTabs, dgTitleClick, dgTitleHotTrack]
     ParentFont = False
     TabOrder = 4
-    TitleFont.Charset = DEFAULT_CHARSET
-    TitleFont.Color = clWindowText
-    TitleFont.Height = -11
-    TitleFont.Name = 'Tahoma'
-    TitleFont.Style = [fsBold]
+    Text = '8082'
   end
-  object mComando: TMemo
-    Left = 8
-    Top = 145
-    Width = 354
-    Height = 72
+  object ButtonStart: TButton
+    Left = 263
+    Top = 39
+    Width = 74
+    Height = 39
+    Cursor = crHandPoint
+    Caption = 'Ativar'
     Font.Charset = DEFAULT_CHARSET
     Font.Color = clWindowText
     Font.Height = -11
     Font.Name = 'Tahoma'
     Font.Style = [fsBold]
-    Lines.Strings = (
-      'SELECT * FROM EMPLOYEE')
     ParentFont = False
     TabOrder = 5
+    OnClick = ButtonStartClick
   end
-  object Button1: TButton
-    Left = 366
-    Top = 169
-    Width = 133
-    Height = 24
-    Caption = 'Open'
+  object cbPoolerState: TCheckBox
+    Left = 126
+    Top = 85
+    Width = 101
+    Height = 17
+    Caption = 'Pooler Active?'
+    Checked = True
     Font.Charset = DEFAULT_CHARSET
     Font.Color = clWindowText
     Font.Height = -11
     Font.Name = 'Tahoma'
     Font.Style = [fsBold]
     ParentFont = False
+    State = cbChecked
     TabOrder = 6
-    OnClick = Button1Click
   end
-  object DataSource1: TDataSource
-    AutoEdit = False
-    DataSet = MemDataset1
-    Left = 128
-    Top = 88
-  end
-  object RESTClientPooler1: TRESTClientPooler
+  object rspServerFiles: TRESTServicePooler
+    Active = False
+    ServicePort = 0
+    ProxyOptions.Port = 8888
+    SSLVersion = sslvSSLv2
     Encoding = esASCII
-    Host = 'localhost'
-    UserName = 'testserver'
-    Password = 'testserver'
-    ProxyOptions.BasicAuthentication = False
-    ProxyOptions.ProxyPort = 0
-    RequestTimeOut = 60000
-    ThreadRequest = False
-    Left = 77
-    Top = 41
-  end
-  object MemDataset1: TFDMemTable
-    FieldDefs = <
-      item
-        Name = 'Alunos'
-        DataType = ftString
-        Size = 100
-      end>
-    IndexDefs = <>
-    FetchOptions.AssignedValues = [evMode]
-    FetchOptions.Mode = fmAll
-    ResourceOptions.AssignedValues = [rvSilentMode]
-    ResourceOptions.SilentMode = True
-    UpdateOptions.AssignedValues = [uvCheckRequired, uvAutoCommitUpdates]
-    UpdateOptions.CheckRequired = False
-    UpdateOptions.AutoCommitUpdates = True
-    StoreDefs = True
-    Left = 80
-    Top = 88
+    ServerContext = 'restdataware'
+    Left = 200
+    Top = 160
   end
 end

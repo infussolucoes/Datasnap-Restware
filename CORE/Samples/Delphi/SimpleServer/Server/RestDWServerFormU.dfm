@@ -56,6 +56,7 @@ object RestDWForm: TRestDWForm
     Top = 356
     Width = 121
     Height = 25
+    Cursor = crHandPoint
     Caption = 'Iniciar'
     Font.Charset = DEFAULT_CHARSET
     Font.Color = clWindowText
@@ -71,6 +72,7 @@ object RestDWForm: TRestDWForm
     Top = 356
     Width = 121
     Height = 25
+    Cursor = crHandPoint
     Caption = 'Parar'
     Font.Charset = DEFAULT_CHARSET
     Font.Color = clWindowText
@@ -107,10 +109,6 @@ object RestDWForm: TRestDWForm
     TabOrder = 3
     object tsConfigs: TTabSheet
       Caption = 'Configuration'
-      ExplicitLeft = 0
-      ExplicitTop = 0
-      ExplicitWidth = 0
-      ExplicitHeight = 0
       object Label1: TLabel
         Left = 7
         Top = 37
@@ -126,7 +124,7 @@ object RestDWForm: TRestDWForm
         ParentFont = False
       end
       object Label2: TLabel
-        Left = 59
+        Left = 57
         Top = 37
         Width = 43
         Height = 13
@@ -140,7 +138,7 @@ object RestDWForm: TRestDWForm
         ParentFont = False
       end
       object Label3: TLabel
-        Left = 169
+        Left = 167
         Top = 37
         Width = 35
         Height = 13
@@ -1206,22 +1204,40 @@ object RestDWForm: TRestDWForm
         Top = 55
         Width = 40
         Height = 21
+        Font.Charset = DEFAULT_CHARSET
+        Font.Color = clWindowText
+        Font.Height = -11
+        Font.Name = 'Tahoma'
+        Font.Style = [fsBold]
+        ParentFont = False
         TabOrder = 0
         Text = '8082'
       end
       object edUserNameDW: TEdit
-        Left = 59
+        Left = 57
         Top = 55
         Width = 100
         Height = 21
+        Font.Charset = DEFAULT_CHARSET
+        Font.Color = clWindowText
+        Font.Height = -11
+        Font.Name = 'Tahoma'
+        Font.Style = [fsBold]
+        ParentFont = False
         TabOrder = 1
         Text = 'testserver'
       end
       object edPasswordDW: TEdit
-        Left = 169
+        Left = 167
         Top = 55
         Width = 100
         Height = 21
+        Font.Charset = DEFAULT_CHARSET
+        Font.Color = clWindowText
+        Font.Height = -11
+        Font.Name = 'Tahoma'
+        Font.Style = [fsBold]
+        ParentFont = False
         PasswordChar = '*'
         TabOrder = 2
         Text = 'testserver'
@@ -1297,6 +1313,22 @@ object RestDWForm: TRestDWForm
         TabOrder = 11
         Text = ''
       end
+      object cbEncode: TCheckBox
+        Left = 270
+        Top = 56
+        Width = 91
+        Height = 19
+        Caption = 'Encode Strings'
+        Checked = True
+        Font.Charset = DEFAULT_CHARSET
+        Font.Color = clWindowText
+        Font.Height = -11
+        Font.Name = 'Tahoma'
+        Font.Style = [fsBold]
+        ParentFont = False
+        State = cbChecked
+        TabOrder = 12
+      end
     end
     object tsLogs: TTabSheet
       Caption = 'Logs'
@@ -1366,18 +1398,6 @@ object RestDWForm: TRestDWForm
       OnClick = SairdaAplicao1Click
     end
   end
-  object RESTServicePooler1: TRESTServicePooler
-    Active = False
-    ServicePort = 8082
-    ProxyOptions.Port = 8888
-    SSLVersion = sslvSSLv2
-    OnLastRequest = RESTServicePooler1LastRequest
-    OnLastResponse = RESTServicePooler1LastResponse
-    Encoding = esASCII
-    ServerContext = 'restdataware'
-    Left = 192
-    Top = 128
-  end
   object FDStanStorageJSONLink1: TFDStanStorageJSONLink
     Left = 293
     Top = 245
@@ -1408,5 +1428,17 @@ object RestDWForm: TRestDWForm
     BeforeConnect = Server_FDConnectionBeforeConnect
     Left = 294
     Top = 186
+  end
+  object RESTServicePooler1: TRESTServicePooler
+    Active = False
+    ServicePort = 8082
+    ProxyOptions.Port = 8888
+    SSLVersion = sslvSSLv2
+    OnLastRequest = RESTServicePooler1LastRequest
+    OnLastResponse = RESTServicePooler1LastResponse
+    Encoding = esASCII
+    ServerContext = 'restdataware'
+    Left = 132
+    Top = 192
   end
 end

@@ -63,7 +63,6 @@ type
     RestaurarAplicao1: TMenuItem;
     N5: TMenuItem;
     SairdaAplicao1: TMenuItem;
-    RESTServicePooler1: TRESTServicePooler;
     memoReq: TMemo;
     memoResp: TMemo;
     Label19: TLabel;
@@ -72,6 +71,8 @@ type
     FDPhysFBDriverLink1: TFDPhysFBDriverLink;
     FDGUIxWaitCursor1: TFDGUIxWaitCursor;
     Server_FDConnection: TFDConnection;
+    cbEncode: TCheckBox;
+    RESTServicePooler1: TRESTServicePooler;
     procedure FormCreate(Sender: TObject);
     procedure ApplicationEvents1Idle(Sender: TObject; var Done: Boolean);
     procedure ButtonStartClick(Sender: TObject);
@@ -166,6 +167,7 @@ end;
 
 procedure TRestDWForm.RESTServicePooler1LastResponse(Value: string);
 begin
+ memoResp.Lines.Clear;
  memoResp.Lines.Add(Value);
 end;
 
@@ -380,6 +382,8 @@ procedure TRestDWForm.StartServer;
 begin
  If Not RESTServicePooler1.Active Then
   Begin
+   RESTServicePooler1.ServerParams.UserName := edUserNameDW.Text;
+   RESTServicePooler1.ServerParams.Password := edPasswordDW.Text;
    RESTServicePooler1.ServicePort           := StrToInt(edPortaDW.Text);
    RESTServicePooler1.SSLPrivateKeyFile     := ePrivKeyFile.Text;
    RESTServicePooler1.SSLPrivateKeyPassword := ePrivKeyPass.Text;

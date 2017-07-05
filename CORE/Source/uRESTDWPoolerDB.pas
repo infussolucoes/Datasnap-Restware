@@ -7,27 +7,13 @@ Desenvolvedor Principal : Gilberto Rocha da Silva (XyberX)
 Empresa : XyberPower Desenvolvimento
 }
 
-unit uRestPoolerDB;
+unit uRESTDWPoolerDB;
 
 interface
 
-uses System.SysUtils,         System.Classes,
-     FireDAC.Stan.Intf,       FireDAC.Stan.Option,     FireDAC.Stan.Param,
-     FireDAC.Stan.Error,      FireDAC.DatS,            FireDAC.Stan.Async,
-     FireDAC.DApt,            FireDAC.UI.Intf,         FireDAC.Stan.Def,
-     FireDAC.Stan.Pool,       FireDAC.Comp.Client,     FireDAC.Comp.UI,
-     FireDAC.Comp.DataSet,    FireDAC.DApt.Intf,       Data.DBXJSON,
-     Data.DB,                 Data.FireDACJSONReflect, Data.DBXJSONReflect,
-     IPPeerClient,            Datasnap.DSClientRest,   System.SyncObjs,
-     uPoolerMethod,            Data.DBXPlatform
-      {$IFDEF MSWINDOWS},      Datasnap.DSServer,
-     Datasnap.DSAuth,         Datasnap.DSProxyRest     {$ENDIF},
-     Soap.EncdDecd,           uMasterDetailData,
-     DbxCompressionFilter,    uRestCompressTools,      System.ZLib,
-     uPoolerServerMethods
-     {$if CompilerVersion > 26}
-       ,System.NetEncoding, System.JSON, FireDAC.Stan.StorageJSON, FireDAC.Stan.StorageBin
-     {$endif};
+uses SysUtils,  Classes,          uDWJSONObject,
+     DB,               ZLib,             uRESTDWBase,
+     SyncObjs,  uRESTDWMasterDetailData, uDWConsts;
 
 Type
  TEncodeSelect            = (esASCII, esUtf8);
@@ -39,7 +25,6 @@ Type
  TOnBeforeDelete          = Procedure (DataSet : TDataSet)         of Object;
  TOnBeforePost            = Procedure (DataSet : TDataSet)         of Object;
  TOnAfterPost             = Procedure (DataSet : TDataSet)         of Object;
- TExecuteProc             = Reference to Procedure;
  TOnEventConnection       = Procedure (Sucess  : Boolean;
                                        Const Error : String)       of Object;
  TOnEventBeforeConnection = Procedure (Sender  : TComponent)       of Object;
@@ -99,9 +84,8 @@ Type
 End;
 
 Type
- TRESTDataBase = Class(TComponent)
+ TRESTDWDataBase = Class(TComponent)
  Private
-  Owner                : TComponent;                 //Proprietario do Componente
   vLogin,                                            //Login do Usuário caso haja autenticação
   vPassword,                                         //Senha do Usuário caso haja autenticação
   vRestWebService,                                   //Rest WebService para consultas
@@ -119,8 +103,7 @@ Type
   vAutoCheckData       : TAutoCheckData;             //Autocheck de Conexão
   vTimeOut             : Integer;
   VEncondig            : TEncodeSelect;              //Enconding se usar CORS usar UTF8 - Alexandre Abade
-  vContentex           : String ;                    //Contexto - Alexandre Abade
-  vRESTContext         : String ;                    //RestContexto - Alexandre Abade
+  vContentex           : String ;                    //RestContexto - Alexandre Abade
   vStrsTrim,
   vStrsEmpty2Null,
   vStrsTrim2Len        : Boolean;
@@ -129,19 +112,19 @@ Type
   Procedure SetPoolerPort(Value : Integer);          //Seta a Porta do Pooler a ser usada
   Procedure CheckConnection;                         //Checa o Estado automatico da Conexão
   Function  TryConnect : Boolean;                    //Tenta Conectar o Servidor para saber se posso executar comandos
-  Procedure SetConnectionOptions(Var Value : TDSRestConnection); //Seta as Opções de Conexão
+  Procedure SetConnectionOptions(Var Value : TRESTClientPooler); //Seta as Opções de Conexão
   Function  ExecuteCommand  (Var SQL    : TStringList;
                              Var Params : TParams;
                              Var Error  : Boolean;
                              Var MessageError : String;
-                             Execute    : Boolean = False) : TFDJSONDataSets;
+                             Execute    : Boolean = False) : TJSONBufferObject;
   Procedure ExecuteProcedure(ProcName         : String;
                              Params           : TParams;
                              Var Error        : Boolean;
                              Var MessageError : String);
   Procedure ApplyUpdates(Var SQL          : TStringList;
                          Var Params       : TParams;
-                         ADeltaList       : TFDJSONDeltas;
+                         ADeltaList       : TJSONBufferObject;
                          TableName        : String;
                          Var Error        : Boolean;
                          Var MessageError : String);
@@ -176,14 +159,13 @@ Type
   Property RequestTimeOut     : Integer                  Read vTimeOut            Write vTimeOut;           //Timeout da Requisição
   Property Encoding           : TEncodeSelect            Read VEncondig           Write VEncondig;          //Encoding da string
   Property Context            : string                   Read vContentex          Write vContentex;         //Contexto
-  Property RESTContext        : string                   Read vRESTContext        Write vRESTContext;       //Rest Contexto
   Property StrsTrim           : Boolean                  Read vStrsTrim           Write vStrsTrim;
   Property StrsEmpty2Null     : Boolean                  Read vStrsEmpty2Null     Write vStrsEmpty2Null;
   Property StrsTrim2Len       : Boolean                  Read vStrsTrim2Len       Write vStrsTrim2Len;
 End;
 
 Type
- TRESTClientSQL   = Class(TFDMemTable)                    //Classe com as funcionalidades de um DBQuery
+ TRESTDWClientSQL   = Class(TDataset)                    //Classe com as funcionalidades de um DBQuery
  Private
   vOldStatus           : TDatasetState;
   vDataSource          : TDataSource;
@@ -194,9 +176,9 @@ Type
   vOnBeforeDelete      : TOnBeforeDelete;
   vOnBeforePost        : TOnBeforePost;
   vOnAfterPost         : TOnAfterPost;
-  Owner                : TComponent;
   OldData              : TMemoryStream;
   vActualRec           : Integer;
+  vMasterFields,
   vUpdateTableName     : String;                          //Tabela que será feito Update no Servidor se for usada Reflexão de Dados
   vCacheUpdateRecords,
   vReadData,
@@ -210,30 +192,29 @@ Type
   vActive              : Boolean;                         //Estado do Dataset
   vSQL                 : TStringList;                     //SQL a ser utilizado na conexão
   vParams              : TParams;                         //Parametros de Dataset
-  vCacheDataDB         : TFDDataset;                      //O Cache de Dados Salvo para utilização rápida
+  vCacheDataDB         : TDataset;                        //O Cache de Dados Salvo para utilização rápida
   vOnGetDataError      : TOnEventConnection;              //Se deu erro na hora de receber os dados ou não
-  vRESTDataBase        : TRESTDataBase;                   //RESTDataBase do Dataset
+  vRESTDataBase        : TRESTDWDataBase;                   //RESTDataBase do Dataset
   vOnAfterDelete       : TDataSetNotifyEvent;
   FieldDefsUPD         : TFieldDefs;
-  vMasterDataSet       : TRESTClientSQL;
+  vMasterDataSet       : TRESTDWClientSQL;
   vMasterDetailList    : TMasterDetailList;               //DataSet MasterDetail Function
-  Procedure CloneDefinitions(Source : TFDMemTable;
-                             aSelf  : TRESTClientSQL);    //Fields em Definições
+  Procedure CloneDefinitions(Source : TDataset;
+                             aSelf  : TRESTDWClientSQL);    //Fields em Definições
   Procedure OnChangingSQL(Sender: TObject);               //Quando Altera o SQL da Lista
   Procedure SetActiveDB(Value : Boolean);                 //Seta o Estado do Dataset
   Procedure SetSQL(Value : TStringList);                  //Seta o SQL a ser usado
   Procedure CreateParams;                                 //Cria os Parametros na lista de Dataset
-  Procedure SetDataBase(Value : TRESTDataBase);           //Diz o REST Database
+  Procedure SetDataBase(Value : TRESTDWDataBase);           //Diz o REST Database
   Function  GetData : Boolean;                            //Recebe os Dados da Internet vindo do Servidor REST
   Procedure SetUpdateTableName(Value : String);           //Diz qual a tabela que será feito Update no Banco
   Procedure OldAfterPost(DataSet: TDataSet);              //Eventos do Dataset para realizar o AfterPost
   Procedure OldAfterDelete(DataSet: TDataSet);            //Eventos do Dataset para realizar o AfterDelete
-  Procedure SetMasterDataSet(Value : TRESTClientSQL);
+  Procedure SetMasterDataSet(Value : TRESTDWClientSQL);
   Procedure PrepareDetails(ActiveMode : Boolean);
   Procedure SetCacheUpdateRecords(Value : Boolean);
   Procedure PrepareDetailsNew;
   Function  FirstWord(Value : String) : String;
-  Property  MasterSource;
   Procedure ProcAfterScroll (DataSet : TDataSet);
   Procedure ProcAfterOpen   (DataSet : TDataSet);
   Procedure ProcAfterClose  (DataSet : TDataSet);
@@ -241,8 +222,8 @@ Type
   Procedure ProcBeforeDelete(DataSet : TDataSet);
   Procedure ProcBeforePost  (DataSet : TDataSet);
   Procedure ProcAfterPost   (DataSet : TDataSet);
+  Procedure CommitData;
  Protected
-  Function  CanObserve(const ID: Integer): Boolean; Override;
  Public
   //Métodos
   Procedure   Open;Overload; Virtual;                     //Método Open que será utilizado no Componente
@@ -258,12 +239,13 @@ Type
   Destructor  Destroy;Override;                           //Destroy a Classe
   Procedure   Loaded; Override;
   procedure   OpenCursor(InfoQuery: Boolean); Override;   //Subscrevendo o OpenCursor para não ter erros de ADD Fields em Tempo de Design
-  Procedure   GotoRec(Const RecNo : Integer);
+  Procedure   GotoRec(Const aRecNo : Integer);
   Function    ParamCount : Integer;
   Procedure   DynamicFilter(Field, Value : String; InText : Boolean = False);
-  procedure   Refresh;
+  Procedure   Refresh;
+  Procedure   SaveToStream(Var Stream : TMemoryStream);
  Published
-  Property MasterDataSet       : TRESTClientSQL      Read vMasterDataSet            Write SetMasterDataSet;
+  Property MasterDataSet       : TRESTDWClientSQL      Read vMasterDataSet            Write SetMasterDataSet;
   Property MasterCascadeDelete : Boolean             Read vCascadeDelete            Write vCascadeDelete;
   Property AfterDelete         : TDataSetNotifyEvent Read vOnAfterDelete            Write vOnAfterDelete;
   Property OnGetDataError      : TOnEventConnection  Read vOnGetDataError           Write vOnGetDataError;         //Recebe os Erros de ExecSQL ou de GetData
@@ -277,35 +259,34 @@ Type
   Property Active              : Boolean             Read vActive                   Write SetActiveDB;             //Estado do Dataset
   Property DataCache           : Boolean             Read vDataCache                Write vDataCache;              //Diz se será salvo o último Stream do Dataset
   Property Params              : TParams             Read vParams                   Write vParams;                 //Parametros de Dataset
-  Property DataBase            : TRESTDataBase       Read vRESTDataBase             Write SetDataBase;             //Database REST do Dataset
+  Property DataBase            : TRESTDWDataBase       Read vRESTDataBase             Write SetDataBase;             //Database REST do Dataset
   Property SQL                 : TStringList         Read vSQL                      Write SetSQL;                  //SQL a ser Executado
   Property UpdateTableName     : String              Read vUpdateTableName          Write SetUpdateTableName;      //Tabela que será usada para Reflexão de Dados
   Property CacheUpdateRecords  : Boolean             Read vCacheUpdateRecords       Write SetCacheUpdateRecords;
+  Property MasterFields        : String              Read vMasterFields             Write vMasterFields;
 End;
 
 Type
- TRESTStoredProc = Class(TComponent)
+ TRESTDWStoredProc = Class(TComponent)
  Private
-  Owner         : TComponent;
   vParams       : TParams;
   vProcName     : String;
-  vRESTDataBase : TRESTDataBase;
-  procedure SetDataBase(Const Value : TRESTDataBase);
+  vRESTDataBase : TRESTDWDataBase;
+  procedure SetDataBase(Const Value : TRESTDWDataBase);
  Public
   Constructor Create   (AOwner      : TComponent);Override; //Cria o Componente
   Function    ExecProc (Var Error   : String) : Boolean;
   Destructor  Destroy;Override;                             //Destroy a Classe
   Function    ParamByName(Value : String) : TParam;
  Published
-  Property DataBase            : TRESTDataBase       Read vRESTDataBase Write SetDataBase;             //Database REST do Dataset
+  Property DataBase            : TRESTDWDataBase       Read vRESTDataBase Write SetDataBase;             //Database REST do Dataset
   Property Params              : TParams             Read vParams       Write vParams;                 //Parametros de Dataset
   Property ProcName            : String              Read vProcName     Write vProcName;               //Procedure a ser Executada
 End;
 
 Type
- TRESTPoolerList = Class(TComponent)
+ TRESTDWPoolerList = Class(TComponent)
  Private
-  Owner                : TComponent;                 //Proprietario do Componente
   vPoolerPrefix,                                     //Prefixo do WS
   vLogin,                                            //Login do Usuário caso haja autenticação
   vPassword,                                         //Senha do Usuário caso haja autenticação
@@ -319,7 +300,7 @@ Type
   Procedure SetConnection(Value : Boolean);          //Seta o Estado da Conexão
   Procedure SetPoolerPort(Value : Integer);          //Seta a Porta do Pooler a ser usada
   Function  TryConnect : Boolean;                    //Tenta Conectar o Servidor para saber se posso executar comandos
-  Procedure SetConnectionOptions(Var Value : TDSRestConnection); //Seta as Opções de Conexão
+  Procedure SetConnectionOptions(Var Value : TRESTClientPooler); //Seta as Opções de Conexão
  Public
   Constructor Create(AOwner  : TComponent);Override; //Cria o Componente
   Destructor  Destroy;Override;                      //Destroy a Classe
@@ -336,9 +317,8 @@ Type
   Property Poolers            : TStringList              Read vPoolerList;
 End;
 
-{$IFDEF MSWINDOWS}
 Type
- TRESTDriver    = Class(TComponent)
+ TRESTDWDriver    = Class(TComponent)
  Private
   vStrsTrim,
   vStrsEmpty2Null,
@@ -351,21 +331,21 @@ Type
                                  Params            : TParams;
                                  Var Error         : Boolean;
                                  Var MessageError  : String;
-                                 Const ADeltaList  : TFDJSONDeltas);Overload;Virtual; abstract;
+                                 Const ADeltaList  : TJSONBufferObject);Overload;Virtual; abstract;
   Procedure ApplyChanges        (TableName,
                                  SQL               : String;
                                  Var Error         : Boolean;
                                  Var MessageError  : String;
-                                 Const ADeltaList  : TFDJSONDeltas);Overload;Virtual; abstract;
+                                 Const ADeltaList  : TJSONBufferObject);Overload;Virtual; abstract;
   Function ExecuteCommand       (SQL        : String;
                                  Var Error  : Boolean;
                                  Var MessageError : String;
-                                 Execute    : Boolean = False) : TFDJSONDataSets;Overload;Virtual;abstract;
+                                 Execute    : Boolean = False) : TJSONBufferObject;Overload;Virtual;abstract;
   Function ExecuteCommand       (SQL              : String;
                                  Params           : TParams;
                                  Var Error        : Boolean;
                                  Var MessageError : String;
-                                 Execute          : Boolean = False) : TFDJSONDataSets;Overload;Virtual;abstract;
+                                 Execute          : Boolean = False) : TJSONBufferObject;Overload;Virtual;abstract;
   Function InsertMySQLReturnID  (SQL              : String;
                                  Var Error        : Boolean;
                                  Var MessageError : String) : Integer;Overload;Virtual;abstract;
@@ -388,15 +368,15 @@ Type
   Property Compression    : Boolean       Read vCompression    Write vCompression;
   Property Encoding       : TEncodeSelect Read vEncoding       Write vEncoding;
 End;
+
 //PoolerDB Control
 Type
- TRESTPoolerDBP = ^TComponent;
- TRESTPoolerDB  = Class(TComponent)
+ TRESTDWPoolerDBP = ^TComponent;
+ TRESTDWPoolerDB  = Class(TComponent)
  Private
-  Owner          : TComponent;
   FLock          : TCriticalSection;
   vRESTDriverBack,
-  vRESTDriver    : TRESTDriver;
+  vRESTDriver    : TRESTDWDriver;
   vActive,
   vStrsTrim,
   vStrsEmpty2Null,
@@ -404,29 +384,29 @@ Type
   vCompression   : Boolean;
   vEncoding      : TEncodeSelect;
   vMessagePoolerOff : String;
-  Procedure SetConnection(Value : TRESTDriver);
-  Function  GetConnection  : TRESTDriver;
+  Procedure SetConnection(Value : TRESTDWDriver);
+  Function  GetConnection  : TRESTDWDriver;
  Public
   Procedure ApplyChanges(TableName,
                          SQL               : String;
                          Params            : TParams;
                          Var Error         : Boolean;
                          Var MessageError  : String;
-                         Const ADeltaList  : TFDJSONDeltas);Overload;
+                         Const ADeltaList  : TJSONBufferObject);Overload;
   Procedure ApplyChanges(TableName,
                          SQL               : String;
                          Var Error         : Boolean;
                          Var MessageError  : String;
-                         Const ADeltaList  : TFDJSONDeltas);Overload;
+                         Const ADeltaList  : TJSONBufferObject);Overload;
   Function ExecuteCommand(SQL        : String;
                           Var Error  : Boolean;
                           Var MessageError : String;
-                          Execute    : Boolean = False) : TFDJSONDataSets;Overload;
+                          Execute    : Boolean = False) : TJSONBufferObject;Overload;
   Function ExecuteCommand(SQL              : String;
                           Params           : TParams;
                           Var Error        : Boolean;
                           Var MessageError : String;
-                          Execute          : Boolean = False) : TFDJSONDataSets;Overload;
+                          Execute          : Boolean = False) : TJSONBufferObject;Overload;
   Function InsertMySQLReturnID(SQL              : String;
                                Var Error        : Boolean;
                                Var MessageError : String) : Integer;Overload;
@@ -444,7 +424,7 @@ Type
   Constructor Create(AOwner : TComponent);Override; //Cria o Componente
   Destructor  Destroy;Override;                     //Destroy a Classe
  Published
-  Property    RESTDriver       : TRESTDriver   Read GetConnection     Write SetConnection;
+  Property    RESTDriver       : TRESTDWDriver   Read GetConnection     Write SetConnection;
   Property    Compression      : Boolean       Read vCompression      Write vCompression;
   Property    Encoding         : TEncodeSelect Read vEncoding         Write vEncoding;
   Property    StrsTrim         : Boolean       Read vStrsTrim         Write vStrsTrim;
@@ -453,96 +433,54 @@ Type
   Property    Active           : Boolean       Read vActive           Write vActive;
   Property    PoolerOffMessage : String        Read vMessagePoolerOff Write vMessagePoolerOff;
 End;
-{$ENDIF}
 
-Function DecodeStrings(Value : String;Encoding:TEncoding) : String;
 Function GetEncoding(Avalue : TEncodeSelect) : TEncoding;
-Function EncodeStrings(Value : String) : String;
 Procedure doUnGZIP(Input, gZipped : TMemoryStream);//helper function
 Procedure doGZIP  (Input, gZipped : TMemoryStream);//helper function
 
 implementation
 
 Procedure doGZIP(Input, gZipped : TMemoryStream);//helper function
+{
 Const
  GZIP = 31;//very important because gzip is a linux zip format
 Var
  CompactadorGZip : TZCompressionStream;
+}
 Begin
+ {
  Input.Position   := 0;
  CompactadorGZip  := TZCompressionStream.Create(gZipped, zcMax, GZIP);
  CompactadorGZip.CopyFrom(Input, Input.Size);
  CompactadorGZip.Free;
  gZipped.Position := 0;
+ }
 End;
 
 Procedure doUnGZIP(Input, gZipped : TMemoryStream);//helper function
+{
 Const
  GZIP = 31;//very important because gzip is a linux zip format
 Var
  CompactadorGZip : TZDecompressionStream;
+}
 Begin
+ {
  Input.Position   := 0;
  CompactadorGZip  := TZDecompressionStream.Create(Input, GZIP);
  gZipped.CopyFrom(CompactadorGZip, CompactadorGZip.Size);
  CompactadorGZip.Free;
  gZipped.Position := 0;
+ }
 End;
 
 Function GetEncoding(Avalue : TEncodeSelect) : TEncoding;
 Begin
  Result := TEncoding.utf8; // definido como padrão para suprimir Warn no delphi
  Case Avalue of
-  esUtf8  : Result := TEncoding.utf8;
+  esUtf8 : Result := TEncoding.utf8;
   esASCII : Result := TEncoding.ASCII;
  End;
-End;
-
-Function EncodeStrings(Value : String) : String;
-Var
- Input,
- Output : TStringStream;
-Begin
- Input := TStringStream.Create(Value, TEncoding.ASCII);
- Try
-  Input.Position := 0;
-  Output := TStringStream.Create('', TEncoding.ASCII);
-  Try
-   Soap.EncdDecd.EncodeStream(Input, Output);
-   Result := Output.DataString;
-  Finally
-   Output.Free;
-  End;
- Finally
-  Input.Free;
- End;
-End;
-
-Function DecodeStrings(Value : String;Encoding:TEncoding) : String;
-Var
- Input,
- Output : TStringStream;
-Begin
- If Length(Value) > 0 Then
-  Begin
-   Input := TStringStream.Create(Value, Encoding);
-   Try
-    Output := TStringStream.Create('', Encoding);
-    Try
-     Soap.EncdDecd.DecodeStream(Input, Output);
-     Output.Position := 0;
-     Try
-      Result := Output.DataString;
-     Except
-      Raise;
-     End;
-    Finally
-     Output.Free;
-    End;
-   Finally
-    Input.Free;
-   End;
-  End;
 End;
 
 Procedure TAutoCheckData.Assign(Source: TPersistent);
@@ -577,12 +515,12 @@ Begin
 End;
 
 {$IFDEF MSWINDOWS}
-Function  TRESTPoolerDB.GetConnection : TRESTDriver;
+Function  TRESTDWPoolerDB.GetConnection : TRESTDWDriver;
 Begin
  Result := vRESTDriverBack;
 End;
 
-Procedure TRESTPoolerDB.SetConnection(Value : TRESTDriver);
+Procedure TRESTDWPoolerDB.SetConnection(Value : TRESTDWDriver);
 Begin
  vRESTDriverBack := Value;
  If Value <> Nil Then
@@ -594,7 +532,7 @@ Begin
   End;
 End;
 
-Function TRESTPoolerDB.InsertMySQLReturnID(SQL              : String;
+Function TRESTDWPoolerDB.InsertMySQLReturnID(SQL              : String;
                                            Var Error        : Boolean;
                                            Var MessageError : String) : Integer;
 Begin
@@ -615,7 +553,7 @@ Begin
   End;
 End;
 
-Function TRESTPoolerDB.InsertMySQLReturnID(SQL              : String;
+Function TRESTDWPoolerDB.InsertMySQLReturnID(SQL              : String;
                                            Params           : TParams;
                                            Var Error        : Boolean;
                                            Var MessageError : String) : Integer;
@@ -637,10 +575,10 @@ Begin
   End;
 End;
 
-Function TRESTPoolerDB.ExecuteCommand(SQL        : String;
+Function TRESTDWPoolerDB.ExecuteCommand(SQL        : String;
                                       Var Error  : Boolean;
                                       Var MessageError : String;
-                                      Execute    : Boolean = False) : TFDJSONDataSets;
+                                      Execute    : Boolean = False) : TJSONBufferObject;
 Begin
   Result := nil;
  If vRESTDriver <> Nil Then
@@ -659,11 +597,11 @@ Begin
   End;
 End;
 
-Function TRESTPoolerDB.ExecuteCommand(SQL              : String;
+Function TRESTDWPoolerDB.ExecuteCommand(SQL              : String;
                                       Params           : TParams;
                                       Var Error        : Boolean;
                                       Var MessageError : String;
-                                      Execute          : Boolean = False) : TFDJSONDataSets;
+                                      Execute          : Boolean = False) : TJSONBufferObject;
 Begin
  Result := Nil;
  If vRESTDriver <> Nil Then
@@ -682,7 +620,7 @@ Begin
   End;
 End;
 
-Procedure TRESTPoolerDB.ExecuteProcedure(ProcName         : String;
+Procedure TRESTDWPoolerDB.ExecuteProcedure(ProcName         : String;
                                          Params           : TParams;
                                          Var Error        : Boolean;
                                          Var MessageError : String);
@@ -703,7 +641,7 @@ Begin
   End;
 End;
 
-Procedure TRESTPoolerDB.ExecuteProcedurePure(ProcName         : String;
+Procedure TRESTDWPoolerDB.ExecuteProcedurePure(ProcName         : String;
                                              Var Error        : Boolean;
                                              Var MessageError : String);
 Begin
@@ -723,11 +661,11 @@ Begin
   End;
 End;
 
-Procedure TRESTPoolerDB.ApplyChanges(TableName,
+Procedure TRESTDWPoolerDB.ApplyChanges(TableName,
                                      SQL               : String;
                                      Var Error         : Boolean;
                                      Var MessageError  : String;
-                                     Const ADeltaList  : TFDJSONDeltas);
+                                     Const ADeltaList  : TJSONBufferObject);
 begin
  If vRESTDriver <> Nil Then
   Begin
@@ -745,12 +683,12 @@ begin
   End;
 end;
 
-Procedure TRESTPoolerDB.ApplyChanges(TableName,
+Procedure TRESTDWPoolerDB.ApplyChanges(TableName,
                                      SQL               : String;
                                      Params            : TParams;
                                      Var Error         : Boolean;
                                      Var MessageError  : String;
-                                     Const ADeltaList  : TFDJSONDeltas);
+                                     Const ADeltaList  : TJSONBufferObject);
 begin
  If vRESTDriver <> Nil Then
   Begin
@@ -768,10 +706,9 @@ begin
   End;
 end;
 
-Constructor TRESTPoolerDB.Create(AOwner : TComponent);
+Constructor TRESTDWPoolerDB.Create(AOwner : TComponent);
 Begin
  Inherited;
- Owner             := aOwner;
  FLock             := TCriticalSection.Create;
  vCompression      := True;
  vStrsTrim         := False;
@@ -782,10 +719,10 @@ Begin
  vMessagePoolerOff := 'RESTPooler not active.';
 End;
 
-Destructor  TRESTPoolerDB.Destroy;
+Destructor  TRESTDWPoolerDB.Destroy;
 Begin
  FLock.Release;
- FLock.DisposeOf;
+ FLock.Free;
  Inherited;
 End;
 {$ENDIF}
@@ -804,7 +741,7 @@ Destructor  TAutoCheckData.Destroy;
 Begin
  SetState(False);
  FLock.Release;
- FLock.DisposeOf;
+ FLock.Free;
  Inherited;
 End;
 
@@ -871,12 +808,10 @@ Begin
  vPort     := 8888;
 End;
 
-Procedure TRESTPoolerList.SetConnectionOptions(Var Value : TDSRestConnection);
+Procedure TRESTDWPoolerList.SetConnectionOptions(Var Value : TRESTClientPooler);
 Begin
- Value                   := TDSRestConnection.Create(Nil);
- Value.LoginPrompt       := False;
- Value.PreserveSessionID := False;
- Value.Protocol          := 'http';
+ Value                   := TRESTClientPooler.Create(Nil);
+ Value.TypeRequest       := trHttp;
  Value.Host              := vRestWebService;
  Value.Port              := vPoolerPort;
  Value.UrlPath           := vRestURL;
@@ -884,60 +819,56 @@ Begin
  Value.Password          := vPassword;
  if vProxy then
   Begin
-   Value.ProxyHost     := vProxyOptions.vServer;
-   Value.ProxyPort     := vProxyOptions.vPort;
-   Value.ProxyUsername := vProxyOptions.vLogin;
-   Value.ProxyPassword := vProxyOptions.vPassword;
+   Value.ProxyOptions.ProxyServer   := vProxyOptions.vServer;
+   Value.ProxyOptions.ProxyPort     := vProxyOptions.vPort;
+   Value.ProxyOptions.ProxyUsername := vProxyOptions.vLogin;
+   Value.ProxyOptions.ProxyPassword := vProxyOptions.vPassword;
   End
  Else
   Begin
-   Value.ProxyHost     := '';
-   Value.ProxyPort     := 0;
-   Value.ProxyUsername := '';
-   Value.ProxyPassword := '';
+   Value.ProxyOptions.ProxyServer   := '';
+   Value.ProxyOptions.ProxyPort     := 0;
+   Value.ProxyOptions.ProxyUsername := '';
+   Value.ProxyOptions.ProxyPassword := '';
   End;
 End;
 
-Procedure TRESTDataBase.SetConnectionOptions(Var Value : TDSRestConnection);
+Procedure TRESTDWDataBase.SetConnectionOptions(Var Value : TRESTClientPooler);
 Begin
- Value                     := TDSRestConnection.Create(Nil);
- Value.LoginPrompt         := False;
- Value.PreserveSessionID   := False;
- Value.Protocol            := 'http';
+ Value                     := TRESTClientPooler.Create(Nil);
+ Value.TypeRequest         := trHttp;
  Value.Host                := vRestWebService;
  Value.Port                := vPoolerPort;
  Value.UrlPath             := vRestURL;
  Value.UserName            := vLogin;
  Value.Password            := vPassword;
- {$if CompilerVersion > 26}
- Value.HTTP.ConnectTimeout := vTimeOut;
- {$endif}
- Value.RESTContext         := vRESTContext;
- Value.Context             := vContentex;
+ Value.RequestTimeOut      := vTimeOut;
+ Value.UrlPath             := vContentex;
  If vProxy Then
   Begin
-   Value.ProxyHost     := vProxyOptions.vServer;
-   Value.ProxyPort     := vProxyOptions.vPort;
-   Value.ProxyUsername := vProxyOptions.vLogin;
-   Value.ProxyPassword := vProxyOptions.vPassword;
+   Value.ProxyOptions.ProxyServer    := vProxyOptions.vServer;
+   Value.ProxyOptions.ProxyPort      := vProxyOptions.vPort;
+   Value.ProxyOptions.ProxyUsername  := vProxyOptions.vLogin;
+   Value.ProxyOptions.ProxyPassword  := vProxyOptions.vPassword;
   End
  Else
   Begin
-   Value.ProxyHost     := '';
-   Value.ProxyPort     := 0;
-   Value.ProxyUsername := '';
-   Value.ProxyPassword := '';
+   Value.ProxyOptions.ProxyServer   := '';
+   Value.ProxyOptions.ProxyPort     := 0;
+   Value.ProxyOptions.ProxyUsername := '';
+   Value.ProxyOptions.ProxyPassword := '';
   End;
 End;
 
-Procedure TRESTDataBase.ApplyUpdates(Var SQL          : TStringList;
+Procedure TRESTDWDataBase.ApplyUpdates(Var SQL          : TStringList;
                                      Var Params       : TParams;
-                                     ADeltaList       : TFDJSONDeltas;
+                                     ADeltaList       : TJSONBufferObject;
                                      TableName        : String;
                                      Var Error        : Boolean;
                                      Var MessageError : String);
+{
 Var
- vDSRConnection    : TDSRestConnection;
+ vDSRConnection    : TRESTClientPooler;
  vRESTConnectionDB : TSMPoolerMethodClient;
  Function GetLineSQL(Value : TStringList) : String;
  Var
@@ -953,7 +884,9 @@ Var
       Result := Result + ' ' + Value[I];
     End;
  End;
+}
 Begin
+{
  if vRestPooler = '' then
   Exit;
  SetConnectionOptions(vDSRConnection);
@@ -990,16 +923,18 @@ Begin
      vOnEventConnection(False, E.Message);
    End;
  End;
- vDSRConnection.DisposeOf;
- vRESTConnectionDB.DisposeOf;
+ vDSRConnection.Free;
+ vRESTConnectionDB.Free;
+}
 End;
 
-Function TRESTDataBase.InsertMySQLReturnID(Var SQL          : TStringList;
+Function TRESTDWDataBase.InsertMySQLReturnID(Var SQL          : TStringList;
                                            Var Params       : TParams;
                                            Var Error        : Boolean;
                                            Var MessageError : String) : Integer;
+{
 Var
- vDSRConnection    : TDSRestConnection;
+ vDSRConnection    : TRESTClientPooler;
  vRESTConnectionDB : TSMPoolerMethodClient;
  oJsonObject       : Integer;
  Function GetLineSQL(Value : TStringList) : String;
@@ -1016,7 +951,9 @@ Var
       Result := Result + ' ' + Value[I];
     End;
  End;
+}
 Begin
+{
  Result := -1;
  Error  := False;
  if vRestPooler = '' then
@@ -1052,29 +989,31 @@ Begin
      vOnEventConnection(False, E.Message);
    End;
  End;
- vDSRConnection.DisposeOf;
- vRESTConnectionDB.DisposeOf;
+ vDSRConnection.Free;
+ vRESTConnectionDB.Free;
+}
 End;
 
-Procedure TRESTDataBase.Open;
+Procedure TRESTDWDataBase.Open;
 Begin
  SetConnection(True);
 End;
 
-Function TRESTDataBase.ExecuteCommand(Var SQL    : TStringList;
+Function TRESTDWDataBase.ExecuteCommand(Var SQL    : TStringList;
                                       Var Params : TParams;
                                       Var Error  : Boolean;
                                       Var MessageError : String;
-                                      Execute    : Boolean = False) : TFDJSONDataSets;
+                                      Execute    : Boolean = False) : TJSONBufferObject;
+{
 Var
- vDSRConnection    : TDSRestConnection;
+ vDSRConnection    : TRESTClientPooler;
  vRESTConnectionDB : TSMPoolerMethodClient;
  oJsonObject       : TJSONObject;
  Original,
  gZIPStream        : TMemoryStream;
- MemTable          : TFDMemTable;
- LDataSetList      : TFDJSONDataSets;
- vTempWriter       : TFDJSONDataSetsWriter;
+ MemTable          : TDataset;
+ LDataSetList      : TJSONBufferObject;
+ vTempWriter       : TJSONBufferObjectWriter;
  Function GetLineSQL(Value : TStringList) : String;
  Var
   I : Integer;
@@ -1100,7 +1039,9 @@ Var
       Params[I].DataType := ftString;
     End;
  End;
+}
 Begin
+{
  Result := Nil;
  if vRestPooler = '' then
   Exit;
@@ -1120,39 +1061,37 @@ Begin
                                                            vRestModule,
                                                            GetLineSQL(SQL), Error,
                                                            MessageError, Execute, '', vTimeOut, vLogin, vPassword);
-  Result := TFDJSONDataSets.Create;
+  Result := TJSONBufferObject.Create;
   If (oJsonObject <> Nil) Then
    Begin
-    If (Trim(oJsonObject.ToString) <> '{}') And
+}
+//    If (Trim(oJsonObject.ToString) <> '{}') And
+{
        (Trim(oJsonObject.ToString) <> '')   Then
      Begin
       If vCompression Then
        Begin
         Original     := TMemoryStream.Create;
         gZIPStream   := TMemoryStream.Create;
-        MemTable     := TFDMemTable.Create(Nil);
-        LDataSetList := TFDJSONDataSets.Create;
-        vTempWriter       := TFDJSONDataSetsWriter.Create(Result);
+        MemTable     := TDataset.Create(Nil);
+        LDataSetList := TJSONBufferObject.Create;
+        vTempWriter       := TJSONBufferObjectWriter.Create(Result);
         Try
          TFDJSONInterceptor.JSONObjectToDataSets(oJsonObject, LDataSetList);
-         Assert(TFDJSONDataSetsReader.GetListCount(LDataSetList) = 1);
-         MemTable.AppendData(TFDJSONDataSetsReader.GetListValue(LDataSetList, 0));
+         Assert(TJSONBufferObjectReader.GetListCount(LDataSetList) = 1);
+         MemTable.AppendData(TJSONBufferObjectReader.GetListValue(LDataSetList, 0));
          MemTable.First;
          TBlobField(MemTable.FieldByName('compress')).SaveToStream(Original);
          MemTable.Close;
          Original.Position := 0;
          doUnGZIP(Original, gZIPStream);
-         {$if CompilerVersion > 26}
-         MemTable.LoadFromStream(gZIPStream, sfJSON);
-         {$else}
          MemTable.LoadFromStream(gZIPStream);
-         {$ifend}
          vTempWriter.ListAdd(Result, MemTable);
         Finally
-         Original.DisposeOf;
-         gZIPStream.DisposeOf;
-         vTempWriter.DisposeOf;
-         LDataSetList.DisposeOf;
+         Original.Free;
+         gZIPStream.Free;
+         vTempWriter.Free;
+         LDataSetList.Free;
         End;
        End
       Else
@@ -1169,18 +1108,22 @@ Begin
      vOnEventConnection(False, E.Message);
    End;
  End;
- vDSRConnection.DisposeOf;
- vRESTConnectionDB.DisposeOf;
+ vDSRConnection.Free;
+ vRESTConnectionDB.Free;
+}
 End;
 
-Procedure TRESTDataBase.ExecuteProcedure(ProcName         : String;
+Procedure TRESTDWDataBase.ExecuteProcedure(ProcName         : String;
                                          Params           : TParams;
                                          Var Error        : Boolean;
                                          Var MessageError : String);
+{
 Var
- vDSRConnection    : TDSRestConnection;
+ vDSRConnection    : TRESTClientPooler;
  vRESTConnectionDB : TSMPoolerMethodClient;
+}
 Begin
+{
  if vRestPooler = '' then
   Exit;
  If Trim(ProcName) = '' Then
@@ -1207,18 +1150,19 @@ Begin
        vOnEventConnection(False, E.Message);
      End;
    End;
-  vDSRConnection.DisposeOf;
-  vRESTConnectionDB.DisposeOf;
+  vDSRConnection.Free;
+  vRESTConnectionDB.Free;
  End;
+}
 End;
 
-Function TRESTDataBase.GetRestPoolers : TStringList;
+Function TRESTDWDataBase.GetRestPoolers : TStringList;
 Var
  I                 : Integer;
  vTempList         : TStringList;
- vDSRConnection    : TDSRestConnection;
- vRESTConnectionDB : TSMPoolerMethodClient;
+ vDSRConnection    : TRESTClientPooler;
 Begin
+{
  SetConnectionOptions(vDSRConnection);
  vRESTConnectionDB := TSMPoolerMethodClient.Create(vDSRConnection, True);
  vRESTConnectionDB.Compression := vCompression;
@@ -1242,20 +1186,19 @@ Begin
      vOnEventConnection(False, E.Message);
    End;
  End;
-
- vDSRConnection.DisposeOf;
- vRESTConnectionDB.DisposeOf;
+ vDSRConnection.Free;
+ vRESTConnectionDB.Free;
+}
 End;
 
-Function TRESTDataBase.GetStateDB: Boolean;
+Function TRESTDWDataBase.GetStateDB: Boolean;
 Begin
  Result := vConnected;
 End;
 
-Constructor TRESTPoolerList.Create(AOwner : TComponent);
+Constructor TRESTDWPoolerList.Create(AOwner : TComponent);
 Begin
  Inherited;
- Owner                     := AOwner;
  vLogin                    := '';
  vPassword                 := vLogin;
  vPoolerPort               := 8082;
@@ -1264,10 +1207,9 @@ Begin
  vPoolerList               := TStringList.Create;
 End;
 
-Constructor TRESTDataBase.Create(AOwner : TComponent);
+Constructor TRESTDWDataBase.Create(AOwner : TComponent);
 Begin
  Inherited;
- Owner                     := AOwner;
  vLogin                    := '';
  vMyIP                     := '0.0.0.0';
  vCompression              := True;
@@ -1281,49 +1223,48 @@ Begin
  vAutoCheckData.vAutoCheck := False;
  vAutoCheckData.vInTime    := 1000;
  vTimeOut                  := 10000;
- vAutoCheckData.vEvent     := CheckConnection;
+// vAutoCheckData.vEvent     := CheckConnection;
  VEncondig                 := esUtf8;
- vContentex                := 'Datasnap';
- vRESTContext              := 'rest/';
+ vContentex                := '';
  vStrsTrim                 := False;
  vStrsEmpty2Null           := False;
  vStrsTrim2Len             := True;
 End;
 
-Destructor  TRESTPoolerList.Destroy;
+Destructor  TRESTDWPoolerList.Destroy;
 Begin
- vProxyOptions.DisposeOf;
+ vProxyOptions.Free;
  If vPoolerList <> Nil Then
-  vPoolerList.DisposeOf;
+  vPoolerList.Free;
  Inherited;
 End;
 
-Destructor  TRESTDataBase.Destroy;
+Destructor  TRESTDWDataBase.Destroy;
 Begin
  vAutoCheckData.vAutoCheck := False;
- vProxyOptions.DisposeOf;
- vAutoCheckData.DisposeOf;
+ vProxyOptions.Free;
+ vAutoCheckData.Free;
  Inherited;
 End;
 
-Procedure TRESTDataBase.CheckConnection;
+Procedure TRESTDWDataBase.CheckConnection;
 Begin
  vConnected := TryConnect;
 End;
 
-Procedure TRESTDataBase.Close;
+Procedure TRESTDWDataBase.Close;
 Begin
  SetConnection(False);
 End;
 
-Function  TRESTPoolerList.TryConnect : Boolean;
+Function  TRESTDWPoolerList.TryConnect : Boolean;
 Var
  vTempResult       : String;
- vDSRConnection    : TDSRestConnection;
- vRESTConnectionDB : TSMPoolerMethodClient;
+ vDSRConnection    : TRESTClientPooler;
 Begin
  Result := False;
  SetConnectionOptions(vDSRConnection);
+{
  vRESTConnectionDB           := TSMPoolerMethodClient.Create(vDSRConnection, True);
  vRESTConnectionDB.Encoding  := TEncoding.ASCII;
  Try
@@ -1336,21 +1277,22 @@ Begin
     vDSRConnection.SessionID := '';
    End;
  End;
- vDSRConnection.DisposeOf;
- vRESTConnectionDB.DisposeOf;
+ vDSRConnection.Free;
+ vRESTConnectionDB.Free;
+}
 End;
 
-Function  TRESTDataBase.TryConnect : Boolean;
+Function  TRESTDWDataBase.TryConnect : Boolean;
 Var
  vTempSend,
  vTempResult       : String;
- vDSRConnection    : TDSRestConnection;
- vRESTConnectionDB : TSMPoolerMethodClient;
+ vDSRConnection    : TRESTClientPooler;
 Begin
  If vRestPooler = '' Then
   vTempSend := 'ping'
  Else
   vTempSend := vRestPooler;
+{
  SetConnectionOptions(vDSRConnection);
  vRESTConnectionDB := TSMPoolerMethodClient.Create(vDSRConnection, True);
  vRESTConnectionDB.Encoding := GetEncoding(VEncondig);
@@ -1373,11 +1315,12 @@ Begin
    End;
  End;
  Result      := Trim(vTempResult) <> '';
- vDSRConnection.DisposeOf;
- vRESTConnectionDB.DisposeOf;
+ vDSRConnection.Free;
+ vRESTConnectionDB.Free;
+}
 End;
 
-Procedure TRESTDataBase.SetConnection(Value : Boolean);
+Procedure TRESTDWDataBase.SetConnection(Value : Boolean);
 Begin
  If (Value) And
     (Trim(vRestPooler) = '') Then
@@ -1399,46 +1342,45 @@ Begin
   End;
 End;
 
-Procedure TRESTPoolerList.SetConnection(Value : Boolean);
+Procedure TRESTDWPoolerList.SetConnection(Value : Boolean);
 Begin
  vConnected := Value;
  If vConnected Then
   vConnected := TryConnect;
 End;
 
-Procedure TRESTDataBase.SetPoolerPort(Value : Integer);
+Procedure TRESTDWDataBase.SetPoolerPort(Value : Integer);
 Begin
  vPoolerPort := Value;
 End;
 
-Procedure TRESTPoolerList.SetPoolerPort(Value : Integer);
+Procedure TRESTDWPoolerList.SetPoolerPort(Value : Integer);
 Begin
  vPoolerPort := Value;
 End;
 
-Procedure TRESTDataBase.SetRestPooler(Value : String);
+Procedure TRESTDWDataBase.SetRestPooler(Value : String);
 Begin
  vRestPooler := Value;
 End;
 
-Procedure TRESTClientSQL.SetDataBase(Value : TRESTDataBase);
+Procedure TRESTDWClientSQL.SetDataBase(Value : TRESTDWDataBase);
 Begin
- if Value is TRESTDataBase then
+ if Value is TRESTDWDataBase then
   vRESTDataBase := Value
  Else
   vRESTDataBase := Nil;
 End;
 
-Procedure TRESTClientSQL.SetMasterDataSet(Value : TRESTClientSQL);
+Procedure TRESTDWClientSQL.SetMasterDataSet(Value : TRESTDWClientSQL);
 Var
  MasterDetailItem : TMasterDetailItem;
 Begin
  If (vMasterDataSet <> Nil) Then
-  TRESTClientSQL(vMasterDataSet).vMasterDetailList.DeleteDS(TRESTClient(Self));
+  TRESTDWClientSQL(vMasterDataSet).vMasterDetailList.DeleteDS(TRESTClient(Self));
  If (Value = Self) And (Value <> Nil) Then
   Begin
    vMasterDataSet := Nil;
-   MasterSource   := Nil;
    MasterFields   := '';
    Exit;
   End;
@@ -1447,41 +1389,31 @@ Begin
   Begin
    MasterDetailItem         := TMasterDetailItem.Create;
    MasterDetailItem.DataSet := TRESTClient(Self);
-   TRESTClientSQL(vMasterDataSet).vMasterDetailList.Add(MasterDetailItem);
+   TRESTDWClientSQL(vMasterDataSet).vMasterDetailList.Add(MasterDetailItem);
    vDataSource.DataSet := Value;
-   Try
-    MasterSource := vDataSource;
-   Except
-    vMasterDataSet := Nil;
-    MasterSource   := Nil;
-    MasterFields   := '';
-   End;
   End
  Else
   Begin
-   MasterSource := Nil;
    MasterFields := '';
   End;
 End;
 
 
 
-Constructor TRESTClientSQL.Create(AOwner : TComponent);
+Constructor TRESTDWClientSQL.Create(AOwner : TComponent);
 Begin
  Inherited;
- Owner                             := AOwner;
  vDataCache                        := False;
  vConnectedOnce                    := True;
  vActive                           := False;
  vCacheUpdateRecords               := True;
- UpdateOptions.CountUpdatedRecords := vCacheUpdateRecords;
  vBeforeClone                      := False;
  vReadData                         := False;
  vCascadeDelete                    := True;
  vSQL                              := TStringList.Create;
- vSQL.OnChange                     := OnChangingSQL;
+// vSQL.OnChange                     := OnChangingSQL;
  vParams                           := TParams.Create;
- vCacheDataDB                      := Self.CloneSource;
+// vCacheDataDB                      := Self.CloneSource;
  vUpdateTableName                  := '';
  FieldDefsUPD                      := TFieldDefs.Create(Self);
  FieldDefs                         := FieldDefsUPD;
@@ -1489,33 +1421,46 @@ Begin
  OldData                           := TMemoryStream.Create;
  vMasterDataSet                    := Nil;
  vDataSource                       := TDataSource.Create(Nil);
- TFDMemTable(Self).AfterScroll     := ProcAfterScroll;
- TFDMemTable(Self).AfterOpen       := ProcAfterOpen;
- TFDMemTable(Self).AfterInsert     := ProcAfterInsert;
- TFDMemTable(Self).BeforeDelete    := ProcBeforeDelete;
- TFDMemTable(Self).AfterClose      := ProcAfterClose;
- TFDMemTable(Self).BeforePost      := ProcBeforePost;
- TFDMemTable(Self).AfterPost       := ProcAfterPost;
+ {$IFDEF FPC}
+ TDataset(Self).AfterScroll        := @ProcAfterScroll;
+ TDataset(Self).AfterOpen          := @ProcAfterOpen;
+ TDataset(Self).AfterInsert        := @ProcAfterInsert;
+ TDataset(Self).BeforeDelete       := @ProcBeforeDelete;
+ TDataset(Self).AfterClose         := @ProcAfterClose;
+ TDataset(Self).BeforePost         := @ProcBeforePost;
+ TDataset(Self).AfterPost          := @ProcAfterPost;
+ Inherited AfterPost               := @OldAfterPost;
+ Inherited AfterDelete             := @OldAfterDelete;
+ {$ELSE}
+ TDataset(Self).AfterScroll        := ProcAfterScroll;
+ TDataset(Self).AfterOpen          := ProcAfterOpen;
+ TDataset(Self).AfterInsert        := ProcAfterInsert;
+ TDataset(Self).BeforeDelete       := ProcBeforeDelete;
+ TDataset(Self).AfterClose         := ProcAfterClose;
+ TDataset(Self).BeforePost         := ProcBeforePost;
+ TDataset(Self).AfterPost          := ProcAfterPost;
  Inherited AfterPost               := OldAfterPost;
  Inherited AfterDelete             := OldAfterDelete;
+ {$ENDIF}
+
 End;
 
-Destructor  TRESTClientSQL.Destroy;
+Destructor  TRESTDWClientSQL.Destroy;
 Begin
- vSQL.DisposeOf;
- vParams.DisposeOf;
- FieldDefsUPD.DisposeOf;
+ vSQL.Free;
+ vParams.Free;
+ FieldDefsUPD.Free;
  If (vMasterDataSet <> Nil) Then
-  TRESTClientSQL(vMasterDataSet).vMasterDetailList.DeleteDS(TRESTClient(Self));
- vMasterDetailList.DisposeOf;
- vDataSource.DisposeOf;
+  TRESTDWClientSQL(vMasterDataSet).vMasterDetailList.DeleteDS(TRESTClient(Self));
+ vMasterDetailList.Free;
+ vDataSource.Free;
  If vCacheDataDB <> Nil Then
-  vCacheDataDB.DisposeOf;
- OldData.DisposeOf;
+  vCacheDataDB.Free;
+ OldData.Free;
  Inherited;
 End;
 
-Procedure TRESTClientSQL.DynamicFilter(Field, Value : String; InText : Boolean = False);
+Procedure TRESTDWClientSQL.DynamicFilter(Field, Value : String; InText : Boolean = False);
 Begin
  ExecOrOpen;
  If vActive Then
@@ -1583,8 +1528,7 @@ Begin
      vParamName := GetParamName;
      If Trim(vParamName) <> '' Then
       Begin
-       If Result.IndexOf(Uppercase(vParamName)) = -1 Then
-        Result.Add(Uppercase(vParamName));
+       Result.Add(vParamName);
        Inc(FCurrentPos);
       End;
     End
@@ -1601,7 +1545,7 @@ Begin
  Result := ScanParams(SQL);
 End;
 
-Procedure TRESTClientSQL.CreateParams;
+Procedure TRESTDWClientSQL.CreateParams;
 Var
  I         : Integer;
  ParamList : TStringList;
@@ -1624,7 +1568,7 @@ Begin
  ParamList.Free;
 End;
 
-Procedure TRESTClientSQL.ProcAfterScroll(DataSet: TDataSet);
+Procedure TRESTDWClientSQL.ProcAfterScroll(DataSet: TDataSet);
 Begin
  If State = dsBrowse Then
   Begin
@@ -1646,7 +1590,7 @@ Begin
   vOnAfterScroll(Dataset);
 End;
 
-Procedure TRESTClientSQL.GotoRec(Const RecNo: Integer);
+Procedure TRESTDWClientSQL.GotoRec(Const aRecNo: Integer);
 Var
  ActiveRecNo,
  Distance     : Integer;
@@ -1667,10 +1611,10 @@ Begin
   End;
 End;
 
-Procedure TRESTClientSQL.ProcBeforeDelete(DataSet: TDataSet);
+Procedure TRESTDWClientSQL.ProcBeforeDelete(DataSet: TDataSet);
 Var
  I : Integer;
- vDetailClient : TRESTClientSQL;
+ vDetailClient : TRESTDWClientSQL;
 Begin
  If Not vReadData Then
   Begin
@@ -1682,15 +1626,15 @@ Begin
     vActualRec   := -1;
    End;
    OldData.Clear;
-   SaveToStream(OldData, TFDStorageFormat.sfBinary);
+   SaveToStream(OldData);
    If Assigned(vOnBeforeDelete) Then
     vOnBeforeDelete(DataSet);
    If vCascadeDelete Then
     Begin
      For I := 0 To vMasterDetailList.Count -1 Do
       Begin
-       vMasterDetailList.Items[I].ParseFields(TRESTClientSQL(vMasterDetailList.Items[I].DataSet).MasterFields);
-       vDetailClient        := TRESTClientSQL(vMasterDetailList.Items[I].DataSet);
+       vMasterDetailList.Items[I].ParseFields(TRESTDWClientSQL(vMasterDetailList.Items[I].DataSet).MasterFields);
+       vDetailClient        := TRESTDWClientSQL(vMasterDetailList.Items[I].DataSet);
        If vDetailClient <> Nil Then
         Begin
          Try
@@ -1707,7 +1651,7 @@ Begin
   End;
 End;
 
-procedure TRESTClientSQL.ProcBeforePost(DataSet: TDataSet);
+procedure TRESTDWClientSQL.ProcBeforePost(DataSet: TDataSet);
 Var
  vOldState : TDatasetState;
 Begin
@@ -1717,7 +1661,7 @@ Begin
    vReadData  := True;
    vOldState  := State;
    OldData.Clear;
-   SaveToStream(OldData, TFDStorageFormat.sfBinary);
+   SaveToStream(OldData);
    vOldStatus   := State;
    Try
     If vOldState = dsInsert then
@@ -1734,7 +1678,7 @@ Begin
   End;
 End;
 
-procedure TRESTClientSQL.Refresh;
+procedure TRESTDWClientSQL.Refresh;
 var
   Curso:integer;
 begin
@@ -1754,10 +1698,10 @@ begin
 
 end;
 
-Procedure TRESTClientSQL.ProcAfterClose(DataSet: TDataSet);
+Procedure TRESTDWClientSQL.ProcAfterClose(DataSet: TDataSet);
 Var
  I : Integer;
- vDetailClient : TRESTClientSQL;
+ vDetailClient : TRESTDWClientSQL;
 Begin
  If Assigned(vOnAfterClose) then
   vOnAfterClose(Dataset);
@@ -1765,20 +1709,20 @@ Begin
   Begin
    For I := 0 To vMasterDetailList.Count -1 Do
     Begin
-     vMasterDetailList.Items[I].ParseFields(TRESTClientSQL(vMasterDetailList.Items[I].DataSet).MasterFields);
-     vDetailClient        := TRESTClientSQL(vMasterDetailList.Items[I].DataSet);
+     vMasterDetailList.Items[I].ParseFields(TRESTDWClientSQL(vMasterDetailList.Items[I].DataSet).MasterFields);
+     vDetailClient        := TRESTDWClientSQL(vMasterDetailList.Items[I].DataSet);
      If vDetailClient <> Nil Then
       vDetailClient.Close;
     End;
   End;
 End;
 
-Procedure TRESTClientSQL.ProcAfterInsert(DataSet: TDataSet);
+Procedure TRESTDWClientSQL.ProcAfterInsert(DataSet: TDataSet);
 Var
  I : Integer;
  vFields       : TStringList;
- vDetailClient : TRESTClientSQL;
- Procedure CloneDetails(Value : TRESTClientSQL; FieldName : String);
+ vDetailClient : TRESTDWClientSQL;
+ Procedure CloneDetails(Value : TRESTDWClientSQL; FieldName : String);
  Begin
   If (FindField(FieldName) <> Nil) And (Value.FindField(FieldName) <> Nil) Then
    FindField(FieldName).Value := Value.FindField(FieldName).Value;
@@ -1815,19 +1759,19 @@ Begin
      If vDetailClient.FindField(vFields[I]) <> Nil Then
       CloneDetails(vDetailClient, vFields[I]);
     End;
-   vFields.DisposeOf;
+   vFields.Free;
   End;
  If Assigned(vOnAfterInsert) Then
   vOnAfterInsert(Dataset);
 End;
 
-Procedure TRESTClientSQL.ProcAfterOpen(DataSet: TDataSet);
+Procedure TRESTDWClientSQL.ProcAfterOpen(DataSet: TDataSet);
 Begin
  If Assigned(vOnAfterOpen) Then
   vOnAfterOpen(Dataset);
 End;
 
-Procedure TRESTClientSQL.ProcAfterPost(DataSet : TDataSet);
+Procedure TRESTDWClientSQL.ProcAfterPost(DataSet : TDataSet);
 Begin
  If Not vReadData Then
   Begin
@@ -1836,24 +1780,27 @@ Begin
   End;
 End;
 
-Function  TRESTClientSQL.ApplyUpdates(Var Error : String) : Boolean;
+Function  TRESTDWClientSQL.ApplyUpdates(Var Error : String) : Boolean;
+{
 var
- LDeltaList    : TFDJSONDeltas;
+ LDeltaList    : TJSONBufferObject;
  vError        : Boolean;
  vMessageError : String;
  oJsonObject   : TJSONObject;
- MemTable      : TFDMemTable;
+ MemTable      : TDataset;
  Original      : TStringStream;
  gZIPStream    : TMemoryStream;
- Function GetDeltas : TFDJSONDeltas;
+ Function GetDeltas : TJSONBufferObject;
  Begin
   UpdateOptions.CountUpdatedRecords := vCacheUpdateRecords;
   If State In [dsEdit, dsInsert] Then
    Post;
-  Result := TFDJSONDeltas.Create;
-  TFDJSONDeltasWriter.ListAdd(Result, vUpdateTableName, TFDMemTable(Self));
+  Result := TJSONBufferObject.Create;
+  TJSONBufferObjectWriter.ListAdd(Result, vUpdateTableName, TDataset(Self));
  End;
+}
 Begin
+{
  If vReadData Then
   Begin
    Result := True;
@@ -1866,9 +1813,9 @@ Begin
     Begin
      oJsonObject   := TJSONObject.Create;
       TFDJSONInterceptor.DataSetsToJSONObject(LDeltaList, oJsonObject);
-      LDeltaList.DisposeOf;
-      LDeltaList   := TFDJSONDeltas.Create;
-      MemTable     := TFDMemTable.Create(Nil);
+      LDeltaList.Free;
+      LDeltaList   := TJSONBufferObject.Create;
+      MemTable     := TDataset.Create(Nil);
       Original     := TStringStream.Create(oJsonObject.ToString);
       gZIPStream   := TMemoryStream.Create;
      Try
@@ -1880,11 +1827,11 @@ Begin
       MemTable.Insert;
       TBlobField(MemTable.FieldByName('compress')).LoadFromStream(gZIPStream);
       MemTable.Post;
-      TFDJSONDeltasWriter.ListAdd(LDeltaList, 'TempTable', MemTable);
+      TJSONBufferObjectWriter.ListAdd(LDeltaList, 'TempTable', MemTable);
      Finally
-      MemTable.DisposeOf;
-      Original.DisposeOf;
-      gZIPStream.DisposeOf;
+      MemTable.Free;
+      Original.Free;
+      gZIPStream.Free;
      End;
     End;
   End
@@ -1908,13 +1855,13 @@ Begin
  vErrorBefore := vError;
  If (Result) And (Not(vError)) Then
   Begin
-   TFDMemTable(Self).ApplyUpdates(-1);
+   TDataset(Self).ApplyUpdates(-1);
    If Not (vErrorBefore)     Then
-    TFDMemTable(Self).CommitUpdates;
+    TDataset(Self).CommitUpdates;
   End
  Else If vError Then
   Begin
-   TFDMemTable(Self).Close;
+   TDataset(Self).Close;
    OldData.Position := 0;
    LoadFromStream(OldData, TFDStorageFormat.sfBinary);
    vReadData  := False;
@@ -1924,9 +1871,10 @@ Begin
    GoToRec(vActualRec);
  Except
  End;
+}
 End;
 
-Function  TRESTClientSQL.ParamByName(Value : String) : TParam;
+Function  TRESTDWClientSQL.ParamByName(Value : String) : TParam;
 Var
  I : Integer;
  vParamName,
@@ -1949,12 +1897,12 @@ Begin
   End;
 End;
 
-Function TRESTClientSQL.ParamCount: Integer;
+Function TRESTDWClientSQL.ParamCount: Integer;
 Begin
  Result := vParams.Count;
 End;
 
-Function TRESTClientSQL.FirstWord(Value : String) : String;
+Function TRESTDWClientSQL.FirstWord(Value : String) : String;
 Var
  vTempValue : PChar;
 Begin
@@ -1969,7 +1917,7 @@ Begin
   End;
 End;
 
-Procedure TRESTClientSQL.ExecOrOpen;
+Procedure TRESTDWClientSQL.ExecOrOpen;
 Var
  vError : String;
  Function OpenSQL : Boolean;
@@ -1999,7 +1947,7 @@ Begin
   End;
 End;
 
-Function TRESTClientSQL.ExecSQL(Var Error : String) : Boolean;
+Function TRESTDWClientSQL.ExecSQL(Var Error : String) : Boolean;
 Var
  vError        : Boolean;
  vMessageError : String;
@@ -2018,7 +1966,7 @@ Begin
  End;
 End;
 
-Function TRESTClientSQL.InsertMySQLReturnID : Integer;
+Function TRESTDWClientSQL.InsertMySQLReturnID : Integer;
 Var
  vError        : Boolean;
  vMessageError : String;
@@ -2033,12 +1981,12 @@ Begin
  End;
 End;
 
-Procedure TRESTClientSQL.OnChangingSQL(Sender: TObject);
+Procedure TRESTDWClientSQL.OnChangingSQL(Sender: TObject);
 Begin
  CreateParams;
 End;
 
-Procedure TRESTClientSQL.SetSQL(Value : TStringList);
+Procedure TRESTDWClientSQL.SetSQL(Value : TStringList);
 Var
  I : Integer;
 Begin
@@ -2047,34 +1995,27 @@ Begin
   vSQL.Add(Value[I]);
 End;
 
-Procedure TRESTClientSQL.CreateDataSet;
+Procedure TRESTDWClientSQL.CreateDataSet;
 Begin
  vCreateDS := True;
- Inherited CreateDataSet;
  vCreateDS := False;
  vActive   := Self.Active;
 End;
 
-Procedure TRESTClientSQL.Close;
+Procedure TRESTDWClientSQL.Close;
 Begin
  vActive := False;
  Inherited Close;
- If TFDMemTable(Self).Fields.Count = 0 Then
-  TFDMemTable(Self).FieldDefs.Clear;
+ If TDataset(Self).Fields.Count = 0 Then
+  TDataset(Self).FieldDefs.Clear;
 End;
 
-Function TRESTClientSQL.CanObserve(const ID: Integer): Boolean;
-begin
-  case ID of
-    TObserverMapping.EditLinkID,      { EditLinkID is the observer that is used for control-to-field links }
-    TObserverMapping.ControlValueID:
-      Result := True;
-  else
-    Result := False;
-  end;
-end;
+Procedure TRESTDWClientSQL.CommitData;
+Begin
 
-Procedure TRESTClientSQL.Open;
+End;
+
+Procedure TRESTDWClientSQL.Open;
 Begin
  If Not vActive Then
   SetActiveDB(True);
@@ -2082,7 +2023,7 @@ Begin
   Inherited Open;
 End;
 
-Procedure TRESTClientSQL.Open(SQL : String);
+Procedure TRESTDWClientSQL.Open(SQL : String);
 Begin
  If Not vActive Then
   Begin
@@ -2094,7 +2035,7 @@ Begin
   End;
 End;
 
-Procedure TRESTClientSQL.OpenCursor(InfoQuery: Boolean);
+Procedure TRESTDWClientSQL.OpenCursor(InfoQuery: Boolean);
 Begin
  If Not vBeforeClone Then
   Begin
@@ -2141,7 +2082,7 @@ Begin
   End;
 End;
 
-Procedure TRESTClientSQL.OldAfterPost(DataSet: TDataSet);
+Procedure TRESTDWClientSQL.OldAfterPost(DataSet: TDataSet);
 Begin
  vErrorBefore := False;
  If Not vReadData Then
@@ -2151,49 +2092,31 @@ Begin
   End;
 End;
 
-Procedure TRESTClientSQL.OldAfterDelete(DataSet: TDataSet);
+Procedure TRESTDWClientSQL.OldAfterDelete(DataSet: TDataSet);
 Begin
  vErrorBefore := False;
  Try
   If Assigned(vOnAfterDelete) Then
    vOnAfterDelete(Self);
   If Not vErrorBefore Then
-   TFDMemTable(Self).CommitUpdates;
+   CommitData;
  Finally
   vReadData := False;
  End;
 End;
 
-Procedure TRESTClientSQL.SetUpdateTableName(Value : String);
+Procedure TRESTDWClientSQL.SetUpdateTableName(Value : String);
 Begin
- vCommitUpdates                  := Trim(Value) <> '';
- TFDMemTable(Self).CachedUpdates := vCommitUpdates;
- vUpdateTableName                := Value;
+ vCommitUpdates    := Trim(Value) <> '';
+ vUpdateTableName  := Value;
 End;
 
-Procedure TRESTClientSQL.Loaded;
+Procedure TRESTDWClientSQL.Loaded;
 Begin
  Inherited Loaded;
 End;
 
-Procedure ExecMethod(Execute : TExecuteProc = Nil);
-Var
- EffectThread : TThread;
-Begin
- EffectThread.CreateAnonymousThread(Procedure
-                                    Begin
-                                     //Se precisar interagir com a Thread da Interface
-                                     If Assigned(Execute) Then
-                                      TThread.Synchronize (TThread.CurrentThread,
-                                                           Procedure
-                                                           Begin
-                                                            Execute;
-                                                            EffectThread.DisposeOf;
-                                                           End);
-                                    End).Start;
-End;
-
-Procedure TRESTClientSQL.CloneDefinitions(Source : TFDMemTable; aSelf : TRESTClientSQL);
+Procedure TRESTDWClientSQL.CloneDefinitions(Source : TDataset; aSelf : TRESTDWClientSQL);
 Var
  I, A : Integer;
 Begin
@@ -2221,31 +2144,31 @@ Begin
   aSelf.CreateDataSet;
 End;
 
-Procedure TRESTClientSQL.PrepareDetailsNew;
+Procedure TRESTDWClientSQL.PrepareDetailsNew;
 Var
  I : Integer;
- vDetailClient : TRESTClientSQL;
+ vDetailClient : TRESTDWClientSQL;
 Begin
  For I := 0 To vMasterDetailList.Count -1 Do
   Begin
-   vMasterDetailList.Items[I].ParseFields(TRESTClientSQL(vMasterDetailList.Items[I].DataSet).MasterFields);
-   vDetailClient        := TRESTClientSQL(vMasterDetailList.Items[I].DataSet);
+   vMasterDetailList.Items[I].ParseFields(TRESTDWClientSQL(vMasterDetailList.Items[I].DataSet).MasterFields);
+   vDetailClient        := TRESTDWClientSQL(vMasterDetailList.Items[I].DataSet);
    If vDetailClient <> Nil Then
     Begin
      If vDetailClient.Active Then
       Begin
-       vDetailClient.EmptyDataSet;
+       vDetailClient.ClearFields;
        vDetailClient.ProcAfterScroll(vDetailClient);
       End;
     End;
   End;
 End;
 
-Procedure TRESTClientSQL.PrepareDetails(ActiveMode : Boolean);
+Procedure TRESTDWClientSQL.PrepareDetails(ActiveMode : Boolean);
 Var
  I : Integer;
- vDetailClient : TRESTClientSQL;
- Procedure CloneDetails(Value : TRESTClientSQL);
+ vDetailClient : TRESTDWClientSQL;
+ Procedure CloneDetails(Value : TRESTDWClientSQL);
  Var
   I : Integer;
  Begin
@@ -2264,8 +2187,8 @@ Begin
   Exit;
  For I := 0 To vMasterDetailList.Count -1 Do
   Begin
-   vMasterDetailList.Items[I].ParseFields(TRESTClientSQL(vMasterDetailList.Items[I].DataSet).MasterFields);
-   vDetailClient        := TRESTClientSQL(vMasterDetailList.Items[I].DataSet);
+   vMasterDetailList.Items[I].ParseFields(TRESTDWClientSQL(vMasterDetailList.Items[I].DataSet).MasterFields);
+   vDetailClient        := TRESTDWClientSQL(vMasterDetailList.Items[I].DataSet);
    If vDetailClient <> Nil Then
     Begin
      vDetailClient.Active := False;
@@ -2275,40 +2198,41 @@ Begin
   End;
 End;
 
-Function TRESTClientSQL.GetData : Boolean;
+Function TRESTDWClientSQL.GetData : Boolean;
 Var
- LDataSetList  : TFDJSONDataSets;
+ LDataSetList  : TJSONBufferObject;
  vError        : Boolean;
  vMessageError : String;
- vTempTable    : TFDMemTable;
+ vTempTable    : TDataset;
 Begin
  Result := False;
  LDataSetList := nil;
  Self.Close;
+{
  If Assigned(vRESTDataBase) Then
   Begin
    Try
     LDataSetList := vRESTDataBase.ExecuteCommand(vSQL, vParams, vError, vMessageError, False);
     If (LDataSetList <> Nil) And (Not (vError)) Then
      Begin
-      vTempTable := TFDMemTable.Create(Nil);
+      vTempTable := TDataset.Create(Nil);
       vTempTable.UpdateOptions.CountUpdatedRecords := False;
       Try
-       Assert(TFDJSONDataSetsReader.GetListCount(LDataSetList) = 1);
-       vTempTable.AppendData(TFDJSONDataSetsReader.GetListValue(LDataSetList, 0));
+       Assert(TJSONBufferObjectReader.GetListCount(LDataSetList) = 1);
+       vTempTable.AppendData(TJSONBufferObjectReader.GetListValue(LDataSetList, 0));
        CloneDefinitions(vTempTable, Self);
        If LDataSetList <> Nil Then
         Begin
-         AppendData(TFDJSONDataSetsReader.GetListValue(LDataSetList, 0));
+         AppendData(TJSONBufferObjectReader.GetListValue(LDataSetList, 0));
          Result := True;
         End;
       Except
       End;
-      vTempTable.DisposeOf;
+      vTempTable.Free;
      End;
    Except
     If LDataSetList <> Nil Then
-     LDataSetList.DisposeOf;
+     LDataSetList.Free;
    End;
    If vError Then
     Begin
@@ -2324,10 +2248,16 @@ Begin
     End;
   End
  Else
-  Raise Exception.Create(PChar('Empty Database Property'));  
+  Raise Exception.Create(PChar('Empty Database Property'));
+ }
 End;
 
-Procedure TRESTClientSQL.SetActiveDB(Value : Boolean);
+Procedure TRESTDWClientSQL.SaveToStream(var Stream: TMemoryStream);
+Begin
+
+End;
+
+Procedure TRESTDWClientSQL.SetActiveDB(Value : Boolean);
 Begin
  vActive := False;
  If (vRESTDataBase <> Nil) And (Value) Then
@@ -2342,9 +2272,6 @@ Begin
      Begin
       Filter                       := '';
       Filtered                     := False;
-      FormatOptions.StrsTrim       := vRESTDataBase.StrsTrim;
-      FormatOptions.StrsEmpty2Null := vRESTDataBase.StrsEmpty2Null;
-      FormatOptions.StrsTrim2Len   := vRESTDataBase.StrsTrim2Len;
       vActive                      := GetData;
      End;
     If State = dsBrowse Then
@@ -2375,31 +2302,26 @@ Begin
   End;
 End;
 
-Procedure TRESTClientSQL.SetCacheUpdateRecords(Value: Boolean);
+Procedure TRESTDWClientSQL.SetCacheUpdateRecords(Value: Boolean);
 Begin
- vCacheUpdateRecords               := Value;
- UpdateOptions.CountUpdatedRecords := vCacheUpdateRecords;
+ vCacheUpdateRecords := Value;
 End;
 
-
-{ TRESTStoredProc }
-
-constructor TRESTStoredProc.Create(AOwner: TComponent);
+constructor TRESTDWStoredProc.Create(AOwner: TComponent);
 begin
  Inherited;
  vParams   := TParams.Create;
- Owner     := AOwner;
  vParams   := Nil;
  vProcName := '';
 end;
 
-destructor TRESTStoredProc.Destroy;
+destructor TRESTDWStoredProc.Destroy;
 begin
- vParams.DisposeOf;
+ vParams.Free;
  Inherited;
 end;
 
-Function TRESTStoredProc.ExecProc(Var Error : String) : Boolean;
+Function TRESTDWStoredProc.ExecProc(Var Error : String) : Boolean;
 Begin
  If vRESTDataBase <> Nil Then
   Begin
@@ -2410,12 +2332,12 @@ Begin
   Raise Exception.Create(PChar('Empty Database Property'));
 End;
 
-Function TRESTStoredProc.ParamByName(Value: String): TParam;
+Function TRESTDWStoredProc.ParamByName(Value: String): TParam;
 Begin
  Result := Params.ParamByName(Value);
 End;
 
-procedure TRESTStoredProc.SetDataBase(const Value: TRESTDataBase);
+procedure TRESTDWStoredProc.SetDataBase(const Value: TRESTDWDataBase);
 begin
  vRESTDataBase := Value;
 end;

@@ -80,7 +80,7 @@ Begin
      iBar2 := Pos ('/', NewCmd);
      JSONParam := TJSONParam.Create(Result.Encoding);
      JSONParam.ParamName := Format('PARAM%d', [Cont +1]);
-     JSONParam.Value := TIdURI.URLDecode (Copy (NewCmd, 1, iBar2 - 1), IndyTextEncoding (encUTF8));
+     JSONParam.SetValue(TIdURI.URLDecode (Copy (NewCmd, 1, iBar2 - 1), IndyTextEncoding (encUTF8)));
      Delete (NewCmd, 1, iBar2);
     End;
   End;
@@ -107,7 +107,7 @@ Begin
  For I := 0 To Params.Count -1 Do
   Begin
    JSONParam := TJSONParam.Create(Result.Encoding);
-   JSONParam.FromJSON(Trim(Copy(Params[I], Pos('=', Params[I]) + 1, 255)));
+   JSONParam.FromJSON(Trim(Copy(Params[I], Pos('=', Params[I]) + 1, Length(Params[I]))));
    Result.Add(JSONParam);
   End;
 End;
