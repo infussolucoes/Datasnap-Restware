@@ -1,20 +1,50 @@
 ﻿<Project xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
     <PropertyGroup>
-        <ProjectGuid>{7ABB481F-C5A4-477F-9D75-3FE3E95D2ACF}</ProjectGuid>
-        <MainSource>RestEasyObjectsCORE.dpk</MainSource>
+        <ProjectGuid>{51492283-F4E3-4B42-AF62-715E4F0BADAF}</ProjectGuid>
+        <MainSource>RESTDWDriverFD.dpk</MainSource>
         <ProjectVersion>18.2</ProjectVersion>
         <FrameworkType>None</FrameworkType>
         <Base>True</Base>
         <Config Condition="'$(Config)'==''">Debug</Config>
         <Platform Condition="'$(Platform)'==''">Win32</Platform>
-        <TargetedPlatforms>1</TargetedPlatforms>
+        <TargetedPlatforms>3</TargetedPlatforms>
         <AppType>Package</AppType>
     </PropertyGroup>
     <PropertyGroup Condition="'$(Config)'=='Base' or '$(Base)'!=''">
         <Base>true</Base>
     </PropertyGroup>
+    <PropertyGroup Condition="('$(Platform)'=='Android' and '$(Base)'=='true') or '$(Base_Android)'!=''">
+        <Base_Android>true</Base_Android>
+        <CfgParent>Base</CfgParent>
+        <Base>true</Base>
+    </PropertyGroup>
+    <PropertyGroup Condition="('$(Platform)'=='iOSDevice32' and '$(Base)'=='true') or '$(Base_iOSDevice32)'!=''">
+        <Base_iOSDevice32>true</Base_iOSDevice32>
+        <CfgParent>Base</CfgParent>
+        <Base>true</Base>
+    </PropertyGroup>
+    <PropertyGroup Condition="('$(Platform)'=='iOSDevice64' and '$(Base)'=='true') or '$(Base_iOSDevice64)'!=''">
+        <Base_iOSDevice64>true</Base_iOSDevice64>
+        <CfgParent>Base</CfgParent>
+        <Base>true</Base>
+    </PropertyGroup>
+    <PropertyGroup Condition="('$(Platform)'=='iOSSimulator' and '$(Base)'=='true') or '$(Base_iOSSimulator)'!=''">
+        <Base_iOSSimulator>true</Base_iOSSimulator>
+        <CfgParent>Base</CfgParent>
+        <Base>true</Base>
+    </PropertyGroup>
+    <PropertyGroup Condition="('$(Platform)'=='OSX32' and '$(Base)'=='true') or '$(Base_OSX32)'!=''">
+        <Base_OSX32>true</Base_OSX32>
+        <CfgParent>Base</CfgParent>
+        <Base>true</Base>
+    </PropertyGroup>
     <PropertyGroup Condition="('$(Platform)'=='Win32' and '$(Base)'=='true') or '$(Base_Win32)'!=''">
         <Base_Win32>true</Base_Win32>
+        <CfgParent>Base</CfgParent>
+        <Base>true</Base>
+    </PropertyGroup>
+    <PropertyGroup Condition="('$(Platform)'=='Win64' and '$(Base)'=='true') or '$(Base_Win64)'!=''">
+        <Base_Win64>true</Base_Win64>
         <CfgParent>Base</CfgParent>
         <Base>true</Base>
     </PropertyGroup>
@@ -35,11 +65,12 @@
         <Base>true</Base>
     </PropertyGroup>
     <PropertyGroup Condition="'$(Base)'!=''">
-        <DCC_CBuilderOutput>All</DCC_CBuilderOutput>
-        <DCC_Namespace>System;Xml;Data;Datasnap;Web;Soap;$(DCC_Namespace)</DCC_Namespace>
-        <GenDll>true</GenDll>
-        <SanitizedProjectName>RestEasyObjectsCORE</SanitizedProjectName>
+        <DCC_OutputNeverBuildDcps>true</DCC_OutputNeverBuildDcps>
         <GenPackage>true</GenPackage>
+        <DCC_CBuilderOutput>All</DCC_CBuilderOutput>
+        <GenDll>true</GenDll>
+        <SanitizedProjectName>RESTDWDriverFD</SanitizedProjectName>
+        <DCC_Namespace>System;Xml;Data;Datasnap;Web;Soap;$(DCC_Namespace)</DCC_Namespace>
         <DCC_DcuOutput>.\$(Platform)\$(Config)</DCC_DcuOutput>
         <DCC_ExeOutput>.\$(Platform)\$(Config)</DCC_ExeOutput>
         <DCC_E>false</DCC_E>
@@ -48,13 +79,41 @@
         <DCC_F>false</DCC_F>
         <DCC_K>false</DCC_K>
     </PropertyGroup>
+    <PropertyGroup Condition="'$(Base_Android)'!=''">
+        <DCC_UsePackage>rtl;DbxCommonDriver;dbrtl;DataSnapClient;DataSnapCommon;DbxClientDriver;CustomIPTransport;soaprtl;IndyIPCommon;IndySystem;IndyProtocols;IndyCore;IndyIPClient;FireDAC;FireDACCommonDriver;FireDACCommon;bindengine;bindcomp;dsnap;dbexpress;dbxcds;DataSnapFireDAC;RESTComponents;RestEasyObjects;$(DCC_UsePackage)</DCC_UsePackage>
+        <DCC_CBuilderOutput>None</DCC_CBuilderOutput>
+        <EnabledSysJars>android-support-v4.dex.jar;cloud-messaging.dex.jar;fmx.dex.jar;google-analytics-v2.dex.jar;google-play-billing.dex.jar;google-play-licensing.dex.jar;google-play-services.dex.jar</EnabledSysJars>
+    </PropertyGroup>
+    <PropertyGroup Condition="'$(Base_iOSDevice32)'!=''">
+        <DCC_UsePackage>rtl;DbxCommonDriver;dbrtl;DataSnapClient;DataSnapCommon;DbxClientDriver;CustomIPTransport;soaprtl;IndyIPCommon;IndySystem;IndyProtocols;IndyCore;IndyIPClient;FireDAC;FireDACCommonDriver;FireDACCommon;bindengine;bindcomp;dsnap;dbexpress;dbxcds;DataSnapFireDAC;RESTComponents;RestEasyObjects;$(DCC_UsePackage)</DCC_UsePackage>
+        <DCC_CBuilderOutput>None</DCC_CBuilderOutput>
+    </PropertyGroup>
+    <PropertyGroup Condition="'$(Base_iOSDevice64)'!=''">
+        <DCC_UsePackage>rtl;DbxCommonDriver;dbrtl;DataSnapClient;DataSnapCommon;DbxClientDriver;CustomIPTransport;soaprtl;IndyIPCommon;IndySystem;IndyProtocols;IndyCore;IndyIPClient;FireDAC;FireDACCommonDriver;FireDACCommon;bindengine;bindcomp;dsnap;dbexpress;dbxcds;DataSnapFireDAC;RESTComponents;RestEasyObjects;$(DCC_UsePackage)</DCC_UsePackage>
+        <DCC_CBuilderOutput>None</DCC_CBuilderOutput>
+    </PropertyGroup>
+    <PropertyGroup Condition="'$(Base_iOSSimulator)'!=''">
+        <DCC_UsePackage>rtl;DbxCommonDriver;dbrtl;DataSnapClient;DataSnapCommon;DbxClientDriver;CustomIPTransport;soaprtl;IndyIPCommon;IndySystem;IndyProtocols;IndyCore;IndyIPClient;FireDAC;FireDACCommonDriver;FireDACCommon;bindengine;bindcomp;dsnap;dbexpress;dbxcds;DataSnapFireDAC;RESTComponents;RestEasyObjects;$(DCC_UsePackage)</DCC_UsePackage>
+        <DCC_CBuilderOutput>None</DCC_CBuilderOutput>
+    </PropertyGroup>
+    <PropertyGroup Condition="'$(Base_OSX32)'!=''">
+        <DCC_UsePackage>rtl;DbxCommonDriver;dbrtl;DataSnapClient;DataSnapCommon;DbxClientDriver;CustomIPTransport;soaprtl;IndyIPCommon;IndySystem;IndyProtocols;IndyCore;IndyIPClient;FireDAC;FireDACCommonDriver;FireDACCommon;bindengine;bindcomp;dsnap;dbexpress;dbxcds;DataSnapServer;DataSnapFireDAC;RESTComponents;$(DCC_UsePackage)</DCC_UsePackage>
+    </PropertyGroup>
     <PropertyGroup Condition="'$(Base_Win32)'!=''">
         <BT_BuildType>Debug</BT_BuildType>
+        <VerInfo_IncludeVerInfo>true</VerInfo_IncludeVerInfo>
+        <DCC_UsePackage>rtl;DbxCommonDriver;dbrtl;DataSnapClient;DataSnapCommon;DbxClientDriver;CustomIPTransport;soaprtl;IndyIPCommon;IndySystem;IndyProtocols;IndyCore;IndyIPClient;FireDAC;FireDACCommonDriver;FireDACCommon;bindengine;bindcomp;dsnap;dbexpress;dbxcds;DataSnapServer;DataSnapFireDAC;RESTComponents;RestEasyObjects;RestEasyObjectsCORE;$(DCC_UsePackage)</DCC_UsePackage>
         <VerInfo_Locale>1033</VerInfo_Locale>
         <DCC_Namespace>Winapi;System.Win;Data.Win;Datasnap.Win;Web.Win;Soap.Win;Xml.Win;Bde;$(DCC_Namespace)</DCC_Namespace>
         <VerInfo_Keys>CompanyName=;FileDescription=$(MSBuildProjectName);FileVersion=1.0.0.0;InternalName=;LegalCopyright=;LegalTrademarks=;OriginalFilename=;ProgramID=com.embarcadero.$(MSBuildProjectName);ProductName=$(MSBuildProjectName);ProductVersion=1.0.0.0;Comments=</VerInfo_Keys>
+    </PropertyGroup>
+    <PropertyGroup Condition="'$(Base_Win64)'!=''">
+        <BT_BuildType>Debug</BT_BuildType>
         <VerInfo_IncludeVerInfo>true</VerInfo_IncludeVerInfo>
-        <DCC_UsePackage>rtl;IndySystem;IndyProtocols;IndyCore;soaprtl;dbrtl;dsnap;$(DCC_UsePackage)</DCC_UsePackage>
+        <DCC_UsePackage>rtl;DbxCommonDriver;dbrtl;DataSnapClient;DataSnapCommon;DbxClientDriver;CustomIPTransport;soaprtl;IndyIPCommon;IndySystem;IndyProtocols;IndyCore;IndyIPClient;FireDAC;FireDACCommonDriver;FireDACCommon;bindengine;bindcomp;dsnap;dbexpress;dbxcds;DataSnapServer;DataSnapFireDAC;RESTComponents;RestEasyObjects;$(DCC_UsePackage)</DCC_UsePackage>
+        <VerInfo_Locale>1033</VerInfo_Locale>
+        <DCC_Namespace>Winapi;System.Win;Data.Win;Datasnap.Win;Web.Win;Soap.Win;Xml.Win;$(DCC_Namespace)</DCC_Namespace>
+        <VerInfo_Keys>CompanyName=;FileDescription=$(MSBuildProjectName);FileVersion=1.0.0.0;InternalName=;LegalCopyright=;LegalTrademarks=;OriginalFilename=;ProgramID=com.embarcadero.$(MSBuildProjectName);ProductName=$(MSBuildProjectName);ProductVersion=1.0.0.0;Comments=</VerInfo_Keys>
     </PropertyGroup>
     <PropertyGroup Condition="'$(Cfg_1)'!=''">
         <DCC_Define>DEBUG;$(DCC_Define)</DCC_Define>
@@ -65,12 +124,7 @@
         <DCC_RemoteDebug>true</DCC_RemoteDebug>
     </PropertyGroup>
     <PropertyGroup Condition="'$(Cfg_1_Win32)'!=''">
-        <DCC_AdditionalSwitches>–LUDesignIDE</DCC_AdditionalSwitches>
         <VerInfo_Locale>1033</VerInfo_Locale>
-        <VerInfo_Build>107</VerInfo_Build>
-        <VerInfo_Release>1</VerInfo_Release>
-        <VerInfo_AutoIncVersion>true</VerInfo_AutoIncVersion>
-        <VerInfo_Keys>CompanyName=XyberPower Desenvolvimento;FileDescription=$(MSBuildProjectName);FileVersion=1.0.1.107;InternalName=REST Dataware CORE Version;LegalCopyright=REST Dataware CORE Version;LegalTrademarks=REST Dataware;OriginalFilename=;ProgramID=com.embarcadero.$(MSBuildProjectName);ProductName=$(MSBuildProjectName);ProductVersion=1.0.1;Comments=</VerInfo_Keys>
         <VerInfo_IncludeVerInfo>true</VerInfo_IncludeVerInfo>
         <DCC_RemoteDebug>false</DCC_RemoteDebug>
     </PropertyGroup>
@@ -85,54 +139,33 @@
             <MainSource>MainSource</MainSource>
         </DelphiCompile>
         <DCCReference Include="rtl.dcp"/>
+        <DCCReference Include="DbxCommonDriver.dcp"/>
         <DCCReference Include="dbrtl.dcp"/>
+        <DCCReference Include="DataSnapClient.dcp"/>
+        <DCCReference Include="DataSnapCommon.dcp"/>
+        <DCCReference Include="DbxClientDriver.dcp"/>
+        <DCCReference Include="CustomIPTransport.dcp"/>
         <DCCReference Include="soaprtl.dcp"/>
-        <DCCReference Include="dsnap.dcp"/>
+        <DCCReference Include="IndyIPCommon.dcp"/>
         <DCCReference Include="IndySystem.dcp"/>
         <DCCReference Include="IndyProtocols.dcp"/>
         <DCCReference Include="IndyCore.dcp"/>
-        <DCCReference Include="designide.dcp"/>
-        <DCCReference Include="..\..\..\Source\uRESTDWBase.pas"/>
-        <DCCReference Include="..\..\..\Source\uRESTDWMasterDetailData.pas"/>
-        <DCCReference Include="..\..\..\Source\uRESTDWPoolerDB.pas"/>
-        <DCCReference Include="..\..\..\Source\uRESTDWReg.pas"/>
-        <DCCReference Include="..\..\..\Source\libs\ServerUtils.pas"/>
-        <DCCReference Include="..\..\..\Source\libs\SysTypes.pas"/>
-        <DCCReference Include="..\..\..\Source\libs\uDWConsts.pas"/>
-        <DCCReference Include="..\..\..\Source\libs\uDWJSONObject.pas"/>
-        <DCCReference Include="..\..\..\Source\libs\uDWJSONTools.pas"/>
-        <DCCReference Include="..\..\..\Source\libs\JSON\uDWJSONParser.pas"/>
-        <DCCReference Include="..\..\..\Source\libs\uzliblaz.pas"/>
-        <DCCReference Include="..\..\..\Source\uDWPoolerMethod.pas"/>
-        <DCCReference Include="..\..\..\Source\libs\uDWConstsData.pas"/>
-        <DCCReference Include="..\..\..\Source\DmDados\uDWDatamodule.pas"/>
-        <RcItem Include="..\..\..\Images\TRESTClientPooler.bmp">
+        <DCCReference Include="IndyIPClient.dcp"/>
+        <DCCReference Include="FireDAC.dcp"/>
+        <DCCReference Include="FireDACCommonDriver.dcp"/>
+        <DCCReference Include="FireDACCommon.dcp"/>
+        <DCCReference Include="bindengine.dcp"/>
+        <DCCReference Include="bindcomp.dcp"/>
+        <DCCReference Include="dsnap.dcp"/>
+        <DCCReference Include="dbexpress.dcp"/>
+        <DCCReference Include="dbxcds.dcp"/>
+        <DCCReference Include="DataSnapServer.dcp"/>
+        <DCCReference Include="DataSnapFireDAC.dcp"/>
+        <DCCReference Include="RestEasyObjectsCORE.dcp"/>
+        <DCCReference Include="..\..\uRestDWDriverFD.pas"/>
+        <RcItem Include="..\..\TRESTDWDriverFD.bmp">
             <ResourceType>BITMAP</ResourceType>
-            <ResourceId>TRESTClientPooler</ResourceId>
-        </RcItem>
-        <RcItem Include="..\..\..\Images\TRESTDWClientSQL.bmp">
-            <ResourceType>BITMAP</ResourceType>
-            <ResourceId>TRESTDWClientSQL</ResourceId>
-        </RcItem>
-        <RcItem Include="..\..\..\Images\TRESTDWDataBase.bmp">
-            <ResourceType>BITMAP</ResourceType>
-            <ResourceId>TRESTDWDataBase</ResourceId>
-        </RcItem>
-        <RcItem Include="..\..\..\Images\TRESTDWPoolerDB.bmp">
-            <ResourceType>BITMAP</ResourceType>
-            <ResourceId>TRESTDWPoolerDB</ResourceId>
-        </RcItem>
-        <RcItem Include="..\..\..\Images\TRESTDWPoolerList.bmp">
-            <ResourceType>BITMAP</ResourceType>
-            <ResourceId>TRESTDWPoolerList</ResourceId>
-        </RcItem>
-        <RcItem Include="..\..\..\Images\TRESTDWStoredProc.bmp">
-            <ResourceType>BITMAP</ResourceType>
-            <ResourceId>TRESTDWStoredProc</ResourceId>
-        </RcItem>
-        <RcItem Include="..\..\..\Images\TRESTServicePooler.bmp">
-            <ResourceType>BITMAP</ResourceType>
-            <ResourceId>TRESTServicePooler</ResourceId>
+            <ResourceId>TRESTDWDriverFD</ResourceId>
         </RcItem>
         <BuildConfiguration Include="Release">
             <Key>Cfg_2</Key>
@@ -152,7 +185,7 @@
         <BorlandProject>
             <Delphi.Personality>
                 <Source>
-                    <Source Name="MainSource">RestEasyObjectsCORE.dpk</Source>
+                    <Source Name="MainSource">RESTDWDriverFD.dpk</Source>
                 </Source>
                 <Excluded_Packages>
                     <Excluded_Packages Name="$(BDSBIN)\dclIntraweb_140_240.bpl">File c:\program files (x86)\embarcadero\studio\18.0\bin\dclIntraweb_140_240.bpl not found</Excluded_Packages>
@@ -164,12 +197,6 @@
                 </Excluded_Packages>
             </Delphi.Personality>
             <Deployment Version="3">
-                <DeployFile LocalName="C:\Users\Public\Documents\Embarcadero\Studio\18.0\Bpl\RestEasyObjectsCORE.bpl" Configuration="Debug" Class="ProjectOutput">
-                    <Platform Name="Win32">
-                        <RemoteName>RestEasyObjectsCORE.bpl</RemoteName>
-                        <Overwrite>true</Overwrite>
-                    </Platform>
-                </DeployFile>
                 <DeployFile LocalName="$(BDS)\Redist\osx32\libcgunwind.1.0.dylib" Class="DependencyModule">
                     <Platform Name="OSX32">
                         <Overwrite>true</Overwrite>
@@ -187,6 +214,12 @@
                 </DeployFile>
                 <DeployFile LocalName="$(BDS)\Redist\osx32\libcgsqlite3.dylib" Class="DependencyModule">
                     <Platform Name="OSX32">
+                        <Overwrite>true</Overwrite>
+                    </Platform>
+                </DeployFile>
+                <DeployFile LocalName="C:\Users\Public\Documents\Embarcadero\Studio\18.0\Bpl\RESTDWDriverFD.bpl" Configuration="Debug" Class="ProjectOutput">
+                    <Platform Name="Win32">
+                        <RemoteName>RESTDWDriverFD.bpl</RemoteName>
                         <Overwrite>true</Overwrite>
                     </Platform>
                 </DeployFile>
@@ -549,7 +582,13 @@
                 <ProjectRoot Platform="iOSSimulator" Name="$(PROJECTNAME).app"/>
             </Deployment>
             <Platforms>
+                <Platform value="Android">False</Platform>
+                <Platform value="iOSDevice32">False</Platform>
+                <Platform value="iOSDevice64">False</Platform>
+                <Platform value="iOSSimulator">False</Platform>
+                <Platform value="OSX32">False</Platform>
                 <Platform value="Win32">True</Platform>
+                <Platform value="Win64">True</Platform>
             </Platforms>
         </BorlandProject>
         <ProjectFileVersion>12</ProjectFileVersion>

@@ -11,12 +11,12 @@ unit uRESTDWPoolerDB;
 
 interface
 
-uses SysUtils,  Classes,          uDWJSONObject,
-     DB,               ZLib,             uRESTDWBase,
-     SyncObjs,  uRESTDWMasterDetailData, uDWConsts;
+uses SysUtils,  Classes,      uDWJSONObject,
+     DB,        uRESTDWBase,  uDWPoolerMethod,
+     uRESTDWMasterDetailData, uDWConsts, uDWConstsData, SyncObjs,
+     JvMemoryDataset;
 
 Type
- TEncodeSelect            = (esASCII, esUtf8);
  TOnEventDB               = Procedure (DataSet : TDataSet)         of Object;
  TOnAfterScroll           = Procedure (DataSet : TDataSet)         of Object;
  TOnAfterOpen             = Procedure (DataSet : TDataSet)         of Object;
@@ -66,7 +66,7 @@ Type
   Property OnEventTimer : TOnEventTimer Read vEvent     Write SetEventTimer; //Evento a executar
 End;
 
-Type
+
  TProxyOptions = Class(TPersistent)
  Private
   vServer,              //Servidor Proxy na Rede
@@ -103,7 +103,7 @@ Type
   vAutoCheckData       : TAutoCheckData;             //Autocheck de Conexão
   vTimeOut             : Integer;
   VEncondig            : TEncodeSelect;              //Enconding se usar CORS usar UTF8 - Alexandre Abade
-  vContentex           : String ;                    //RestContexto - Alexandre Abade
+  vContentex           : String;                    //RestContexto - Alexandre Abade
   vStrsTrim,
   vStrsEmpty2Null,
   vStrsTrim2Len        : Boolean;
@@ -117,14 +117,14 @@ Type
                              Var Params : TParams;
                              Var Error  : Boolean;
                              Var MessageError : String;
-                             Execute    : Boolean = False) : TJSONBufferObject;
+                             Execute    : Boolean = False) : TJSONValue;
   Procedure ExecuteProcedure(ProcName         : String;
                              Params           : TParams;
                              Var Error        : Boolean;
                              Var MessageError : String);
   Procedure ApplyUpdates(Var SQL          : TStringList;
                          Var Params       : TParams;
-                         ADeltaList       : TJSONBufferObject;
+                         ADeltaList       : TJSONValue;
                          TableName        : String;
                          Var Error        : Boolean;
                          Var MessageError : String);
@@ -132,7 +132,8 @@ Type
                                Var Params       : TParams;
                                Var Error        : Boolean;
                                Var MessageError : String) : Integer;
-  Function GetStateDB : Boolean;
+  Function  GetStateDB : Boolean;
+  Procedure SetMyIp(Value : String);
  Public
   Function    GetRestPoolers : TStringList;          //Retorna a Lista de DataSet Sources do Pooler
   Constructor Create(AOwner  : TComponent);Override; //Cria o Componente
@@ -145,7 +146,7 @@ Type
   Property OnBeforeConnect    : TOnEventBeforeConnection Read vOnBeforeConnection Write vOnBeforeConnection; //Evento antes de Connectar o Database
   Property Active             : Boolean                  Read vConnected          Write SetConnection;      //Seta o Estado da Conexão
   Property Compression        : Boolean                  Read vCompression        Write vCompression;       //Compressão de Dados
-  Property MyIP               : String                   Read vMyIP;
+  Property MyIP               : String                   Read vMyIP               Write SetMyIp;
   Property Login              : String                   Read vLogin              Write vLogin;             //Login do Usuário caso haja autenticação
   Property Password           : String                   Read vPassword           Write vPassword;          //Senha do Usuário caso haja autenticação
   Property Proxy              : Boolean                  Read vProxy              Write vProxy;             //Diz se tem servidor Proxy
@@ -165,7 +166,7 @@ Type
 End;
 
 Type
- TRESTDWClientSQL   = Class(TDataset)                    //Classe com as funcionalidades de um DBQuery
+ TRESTDWClientSQL   = Class(TJvMemoryData)                    //Classe com as funcionalidades de um DBQuery
  Private
   vOldStatus           : TDatasetState;
   vDataSource          : TDataSource;
@@ -180,6 +181,7 @@ Type
   vActualRec           : Integer;
   vMasterFields,
   vUpdateTableName     : String;                          //Tabela que será feito Update no Servidor se for usada Reflexão de Dados
+  vInactive,
   vCacheUpdateRecords,
   vReadData,
   vCascadeDelete,
@@ -199,8 +201,8 @@ Type
   FieldDefsUPD         : TFieldDefs;
   vMasterDataSet       : TRESTDWClientSQL;
   vMasterDetailList    : TMasterDetailList;               //DataSet MasterDetail Function
-  Procedure CloneDefinitions(Source : TDataset;
-                             aSelf  : TRESTDWClientSQL);    //Fields em Definições
+  Procedure CloneDefinitions(Source : TJvMemoryData;
+                             aSelf  : TJvMemoryData);     //Fields em Definições
   Procedure OnChangingSQL(Sender: TObject);               //Quando Altera o SQL da Lista
   Procedure SetActiveDB(Value : Boolean);                 //Seta o Estado do Dataset
   Procedure SetSQL(Value : TStringList);                  //Seta o SQL a ser usado
@@ -245,8 +247,9 @@ Type
   Procedure   Refresh;
   Procedure   SaveToStream(Var Stream : TMemoryStream);
  Published
-  Property MasterDataSet       : TRESTDWClientSQL      Read vMasterDataSet            Write SetMasterDataSet;
+  Property MasterDataSet       : TRESTDWClientSQL    Read vMasterDataSet            Write SetMasterDataSet;
   Property MasterCascadeDelete : Boolean             Read vCascadeDelete            Write vCascadeDelete;
+  Property Inactive            : Boolean             Read vInactive                 Write vInactive;
   Property AfterDelete         : TDataSetNotifyEvent Read vOnAfterDelete            Write vOnAfterDelete;
   Property OnGetDataError      : TOnEventConnection  Read vOnGetDataError           Write vOnGetDataError;         //Recebe os Erros de ExecSQL ou de GetData
   Property AfterScroll         : TOnAfterScroll      Read vOnAfterScroll            Write vOnAfterScroll;
@@ -259,7 +262,7 @@ Type
   Property Active              : Boolean             Read vActive                   Write SetActiveDB;             //Estado do Dataset
   Property DataCache           : Boolean             Read vDataCache                Write vDataCache;              //Diz se será salvo o último Stream do Dataset
   Property Params              : TParams             Read vParams                   Write vParams;                 //Parametros de Dataset
-  Property DataBase            : TRESTDWDataBase       Read vRESTDataBase             Write SetDataBase;             //Database REST do Dataset
+  Property DataBase            : TRESTDWDataBase     Read vRESTDataBase             Write SetDataBase;             //Database REST do Dataset
   Property SQL                 : TStringList         Read vSQL                      Write SetSQL;                  //SQL a ser Executado
   Property UpdateTableName     : String              Read vUpdateTableName          Write SetUpdateTableName;      //Tabela que será usada para Reflexão de Dados
   Property CacheUpdateRecords  : Boolean             Read vCacheUpdateRecords       Write SetCacheUpdateRecords;
@@ -279,7 +282,7 @@ Type
   Destructor  Destroy;Override;                             //Destroy a Classe
   Function    ParamByName(Value : String) : TParam;
  Published
-  Property DataBase            : TRESTDWDataBase       Read vRESTDataBase Write SetDataBase;             //Database REST do Dataset
+  Property DataBase            : TRESTDWDataBase     Read vRESTDataBase Write SetDataBase;             //Database REST do Dataset
   Property Params              : TParams             Read vParams       Write vParams;                 //Parametros de Dataset
   Property ProcName            : String              Read vProcName     Write vProcName;               //Procedure a ser Executada
 End;
@@ -328,33 +331,33 @@ Type
  Public
   Procedure ApplyChanges        (TableName,
                                  SQL               : String;
-                                 Params            : TParams;
+                                 Params            : TDWParams;
                                  Var Error         : Boolean;
                                  Var MessageError  : String;
-                                 Const ADeltaList  : TJSONBufferObject);Overload;Virtual; abstract;
+                                 Const ADeltaList  : TJSONValue);Overload;Virtual; abstract;
   Procedure ApplyChanges        (TableName,
                                  SQL               : String;
                                  Var Error         : Boolean;
                                  Var MessageError  : String;
-                                 Const ADeltaList  : TJSONBufferObject);Overload;Virtual; abstract;
+                                 Const ADeltaList  : TJSONValue);Overload;Virtual; abstract;
   Function ExecuteCommand       (SQL        : String;
                                  Var Error  : Boolean;
                                  Var MessageError : String;
-                                 Execute    : Boolean = False) : TJSONBufferObject;Overload;Virtual;abstract;
+                                 Execute    : Boolean = False) : TJSONValue;Overload;Virtual;abstract;
   Function ExecuteCommand       (SQL              : String;
-                                 Params           : TParams;
+                                 Params           : TDWParams;
                                  Var Error        : Boolean;
                                  Var MessageError : String;
-                                 Execute          : Boolean = False) : TJSONBufferObject;Overload;Virtual;abstract;
+                                 Execute          : Boolean = False) : TJSONValue;Overload;Virtual;abstract;
   Function InsertMySQLReturnID  (SQL              : String;
                                  Var Error        : Boolean;
                                  Var MessageError : String) : Integer;Overload;Virtual;abstract;
   Function InsertMySQLReturnID  (SQL              : String;
-                                 Params           : TParams;
+                                 Params           : TDWParams;
                                  Var Error        : Boolean;
                                  Var MessageError : String) : Integer;Overload;Virtual;abstract;
   Procedure ExecuteProcedure    (ProcName         : String;
-                                 Params           : TParams;
+                                 Params           : TDWParams;
                                  Var Error        : Boolean;
                                  Var MessageError : String);Virtual;abstract;
   Procedure ExecuteProcedurePure(ProcName         : String;
@@ -389,33 +392,33 @@ Type
  Public
   Procedure ApplyChanges(TableName,
                          SQL               : String;
-                         Params            : TParams;
+                         Params            : TDWParams;
                          Var Error         : Boolean;
                          Var MessageError  : String;
-                         Const ADeltaList  : TJSONBufferObject);Overload;
+                         Const ADeltaList  : TJSONValue);Overload;
   Procedure ApplyChanges(TableName,
                          SQL               : String;
                          Var Error         : Boolean;
                          Var MessageError  : String;
-                         Const ADeltaList  : TJSONBufferObject);Overload;
+                         Const ADeltaList  : TJSONValue);Overload;
   Function ExecuteCommand(SQL        : String;
                           Var Error  : Boolean;
                           Var MessageError : String;
-                          Execute    : Boolean = False) : TJSONBufferObject;Overload;
+                          Execute    : Boolean = False) : TJSONValue;Overload;
   Function ExecuteCommand(SQL              : String;
-                          Params           : TParams;
+                          Params           : TDWParams;
                           Var Error        : Boolean;
                           Var MessageError : String;
-                          Execute          : Boolean = False) : TJSONBufferObject;Overload;
+                          Execute          : Boolean = False) : TJSONValue;Overload;
   Function InsertMySQLReturnID(SQL              : String;
                                Var Error        : Boolean;
                                Var MessageError : String) : Integer;Overload;
   Function InsertMySQLReturnID(SQL              : String;
-                               Params           : TParams;
+                               Params           : TDWParams;
                                Var Error        : Boolean;
                                Var MessageError : String) : Integer;Overload;
   Procedure ExecuteProcedure  (ProcName         : String;
-                               Params           : TParams;
+                               Params           : TDWParams;
                                Var Error        : Boolean;
                                Var MessageError : String);
   Procedure ExecuteProcedurePure(ProcName         : String;
@@ -434,53 +437,59 @@ Type
   Property    PoolerOffMessage : String        Read vMessagePoolerOff Write vMessagePoolerOff;
 End;
 
-Function GetEncoding(Avalue : TEncodeSelect) : TEncoding;
-Procedure doUnGZIP(Input, gZipped : TMemoryStream);//helper function
-Procedure doGZIP  (Input, gZipped : TMemoryStream);//helper function
+{$IFNDEF FPC}
+ {$if CompilerVersion > 21}
+  Function GetDWParams(Params : TParams; Encondig : TEncodeSelect) : TDWParams;
+ {$ELSE}
+  Function GetDWParams(Params : TParams) : TDWParams;
+ {$IFEND}
+{$ELSE}
+ Function GetDWParams(Params : TParams) : TDWParams;
+{$ENDIF}
 
 implementation
 
-Procedure doGZIP(Input, gZipped : TMemoryStream);//helper function
-{
-Const
- GZIP = 31;//very important because gzip is a linux zip format
+{$IFNDEF FPC}
+ {$if CompilerVersion > 21}
+  Function GetDWParams(Params : TParams; Encondig : TEncodeSelect) : TDWParams;
+ {$ELSE}
+  Function GetDWParams(Params : TParams) : TDWParams;
+ {$IFEND}
+{$ELSE}
+ Function GetDWParams(Params : TParams) : TDWParams;
+{$ENDIF}
 Var
- CompactadorGZip : TZCompressionStream;
-}
+ I         : Integer;
+ JSONParam : TJSONParam;
 Begin
- {
- Input.Position   := 0;
- CompactadorGZip  := TZCompressionStream.Create(gZipped, zcMax, GZIP);
- CompactadorGZip.CopyFrom(Input, Input.Size);
- CompactadorGZip.Free;
- gZipped.Position := 0;
- }
-End;
-
-Procedure doUnGZIP(Input, gZipped : TMemoryStream);//helper function
-{
-Const
- GZIP = 31;//very important because gzip is a linux zip format
-Var
- CompactadorGZip : TZDecompressionStream;
-}
-Begin
- {
- Input.Position   := 0;
- CompactadorGZip  := TZDecompressionStream.Create(Input, GZIP);
- gZipped.CopyFrom(CompactadorGZip, CompactadorGZip.Size);
- CompactadorGZip.Free;
- gZipped.Position := 0;
- }
-End;
-
-Function GetEncoding(Avalue : TEncodeSelect) : TEncoding;
-Begin
- Result := TEncoding.utf8; // definido como padrão para suprimir Warn no delphi
- Case Avalue of
-  esUtf8 : Result := TEncoding.utf8;
-  esASCII : Result := TEncoding.ASCII;
- End;
+ Result := Nil;
+ If Params <> Nil Then
+  Begin
+   If Params.Count > 0 Then
+    Begin
+     Result := TDWParams.Create;
+     {$IFNDEF FPC}
+      {$if CompilerVersion > 21}
+       Result.Encoding := GetEncoding(Encondig);
+      {$IFEND}
+     {$ENDIF}
+     For I := 0 To Params.Count -1 Do
+      Begin
+       {$IFNDEF FPC}
+        {$if CompilerVersion > 21}
+         JSONParam         := TJSONParam.Create(Result.Encoding);
+        {$ELSE}
+         JSONParam         := TJSONParam.Create;
+        {$IFEND}
+       {$ELSE}
+        JSONParam         := TJSONParam.Create;
+       {$ENDIF}
+       JSONParam.ParamName := Params[I].Name;
+       JSONParam.LoadFromParam(Params[I]);
+       Result.Add(JSONParam);
+      End;
+    End;
+  End;
 End;
 
 Procedure TAutoCheckData.Assign(Source: TPersistent);
@@ -554,7 +563,7 @@ Begin
 End;
 
 Function TRESTDWPoolerDB.InsertMySQLReturnID(SQL              : String;
-                                           Params           : TParams;
+                                           Params           : TDWParams;
                                            Var Error        : Boolean;
                                            Var MessageError : String) : Integer;
 Begin
@@ -578,7 +587,7 @@ End;
 Function TRESTDWPoolerDB.ExecuteCommand(SQL        : String;
                                       Var Error  : Boolean;
                                       Var MessageError : String;
-                                      Execute    : Boolean = False) : TJSONBufferObject;
+                                      Execute    : Boolean = False) : TJSONValue;
 Begin
   Result := nil;
  If vRESTDriver <> Nil Then
@@ -598,10 +607,10 @@ Begin
 End;
 
 Function TRESTDWPoolerDB.ExecuteCommand(SQL              : String;
-                                      Params           : TParams;
-                                      Var Error        : Boolean;
-                                      Var MessageError : String;
-                                      Execute          : Boolean = False) : TJSONBufferObject;
+                                        Params           : TDWParams;
+                                        Var Error        : Boolean;
+                                        Var MessageError : String;
+                                        Execute          : Boolean = False) : TJSONValue;
 Begin
  Result := Nil;
  If vRESTDriver <> Nil Then
@@ -621,7 +630,7 @@ Begin
 End;
 
 Procedure TRESTDWPoolerDB.ExecuteProcedure(ProcName         : String;
-                                         Params           : TParams;
+                                         Params           : TDWParams;
                                          Var Error        : Boolean;
                                          Var MessageError : String);
 Begin
@@ -665,7 +674,7 @@ Procedure TRESTDWPoolerDB.ApplyChanges(TableName,
                                      SQL               : String;
                                      Var Error         : Boolean;
                                      Var MessageError  : String;
-                                     Const ADeltaList  : TJSONBufferObject);
+                                     Const ADeltaList  : TJSONValue);
 begin
  If vRESTDriver <> Nil Then
   Begin
@@ -685,10 +694,10 @@ end;
 
 Procedure TRESTDWPoolerDB.ApplyChanges(TableName,
                                      SQL               : String;
-                                     Params            : TParams;
+                                     Params            : TDWParams;
                                      Var Error         : Boolean;
                                      Var MessageError  : String;
-                                     Const ADeltaList  : TJSONBufferObject);
+                                     Const ADeltaList  : TJSONValue);
 begin
  If vRESTDriver <> Nil Then
   Begin
@@ -861,11 +870,11 @@ Begin
 End;
 
 Procedure TRESTDWDataBase.ApplyUpdates(Var SQL          : TStringList;
-                                     Var Params       : TParams;
-                                     ADeltaList       : TJSONBufferObject;
-                                     TableName        : String;
-                                     Var Error        : Boolean;
-                                     Var MessageError : String);
+                                       Var Params       : TParams;
+                                       ADeltaList       : TJSONValue;
+                                       TableName        : String;
+                                       Var Error        : Boolean;
+                                       Var MessageError : String);
 {
 Var
  vDSRConnection    : TRESTClientPooler;
@@ -929,9 +938,9 @@ Begin
 End;
 
 Function TRESTDWDataBase.InsertMySQLReturnID(Var SQL          : TStringList;
-                                           Var Params       : TParams;
-                                           Var Error        : Boolean;
-                                           Var MessageError : String) : Integer;
+                                             Var Params       : TParams;
+                                             Var Error        : Boolean;
+                                             Var MessageError : String) : Integer;
 {
 Var
  vDSRConnection    : TRESTClientPooler;
@@ -999,21 +1008,14 @@ Begin
  SetConnection(True);
 End;
 
-Function TRESTDWDataBase.ExecuteCommand(Var SQL    : TStringList;
-                                      Var Params : TParams;
-                                      Var Error  : Boolean;
-                                      Var MessageError : String;
-                                      Execute    : Boolean = False) : TJSONBufferObject;
-{
+Function TRESTDWDataBase.ExecuteCommand(Var SQL          : TStringList;
+                                        Var Params       : TParams;
+                                        Var Error        : Boolean;
+                                        Var MessageError : String;
+                                        Execute          : Boolean = False) : TJSONValue;
 Var
- vDSRConnection    : TRESTClientPooler;
- vRESTConnectionDB : TSMPoolerMethodClient;
- oJsonObject       : TJSONObject;
- Original,
- gZIPStream        : TMemoryStream;
- MemTable          : TDataset;
- LDataSetList      : TJSONBufferObject;
- vTempWriter       : TJSONBufferObjectWriter;
+ vRESTConnectionDB : TDWPoolerMethodClient;
+ LDataSetList      : TJSONValue;
  Function GetLineSQL(Value : TStringList) : String;
  Var
   I : Integer;
@@ -1039,84 +1041,74 @@ Var
       Params[I].DataType := ftString;
     End;
  End;
-}
 Begin
-{
  Result := Nil;
  if vRestPooler = '' then
   Exit;
- SetConnectionOptions(vDSRConnection);
  ParseParams;
- vRESTConnectionDB := TSMPoolerMethodClient.Create(vDSRConnection, True);
+ vRESTConnectionDB             := TDWPoolerMethodClient.Create(Nil);
+ vRESTConnectionDB.Host        := vRestWebService;
+ vRESTConnectionDB.Port        := vPoolerPort;
  vRESTConnectionDB.Compression := vCompression;
- vRESTConnectionDB.Encoding    := GetEncoding(VEncondig);
+ {$IFNDEF FPC}
+  {$if CompilerVersion > 21}
+  vRESTConnectionDB.Encoding    := VEncondig;
+  {$IFEND}
+ {$ENDIF}
  Try
   If Params.Count > 0 Then
-   oJsonObject := vRESTConnectionDB.ExecuteCommandJSON(vRestPooler,
-                                                       vRestModule, GetLineSQL(SQL),
-                                                       Params, Error,
-                                                       MessageError, Execute, '', vTimeOut, vLogin, vPassword)
+   LDataSetList := vRESTConnectionDB.ExecuteCommandJSON(vRestPooler,
+                                                        vRestModule, GetLineSQL(SQL),
+                                                        GetDWParams(Params{$IFNDEF FPC}
+                                                                    {$if CompilerVersion > 21}
+                                                                     , vEncondig
+                                                                    {$IFEND}
+                                                                    {$ENDIF}), Error,
+                                                        MessageError, Execute, vTimeOut, vLogin, vPassword)
   Else
-   oJsonObject := vRESTConnectionDB.ExecuteCommandPureJSON(vRestPooler,
-                                                           vRestModule,
-                                                           GetLineSQL(SQL), Error,
-                                                           MessageError, Execute, '', vTimeOut, vLogin, vPassword);
-  Result := TJSONBufferObject.Create;
-  If (oJsonObject <> Nil) Then
+   LDataSetList := vRESTConnectionDB.ExecuteCommandPureJSON(vRestPooler,
+                                                            vRestModule,
+                                                            GetLineSQL(SQL), Error,
+                                                            MessageError, Execute, vTimeOut, vLogin, vPassword);
+  If (LDataSetList <> Nil) Then
    Begin
-}
-//    If (Trim(oJsonObject.ToString) <> '{}') And
-{
-       (Trim(oJsonObject.ToString) <> '')   Then
+    Result := TJSONValue.Create;
+    Error  := Trim(MessageError) <> '';
+    If (Trim(LDataSetList.ToJSON) <> '{}') And
+       (Trim(LDataSetList.Value) <> '')    And
+       (Not (Error))                       Then
      Begin
-      If vCompression Then
-       Begin
-        Original     := TMemoryStream.Create;
-        gZIPStream   := TMemoryStream.Create;
-        MemTable     := TDataset.Create(Nil);
-        LDataSetList := TJSONBufferObject.Create;
-        vTempWriter       := TJSONBufferObjectWriter.Create(Result);
-        Try
-         TFDJSONInterceptor.JSONObjectToDataSets(oJsonObject, LDataSetList);
-         Assert(TJSONBufferObjectReader.GetListCount(LDataSetList) = 1);
-         MemTable.AppendData(TJSONBufferObjectReader.GetListValue(LDataSetList, 0));
-         MemTable.First;
-         TBlobField(MemTable.FieldByName('compress')).SaveToStream(Original);
-         MemTable.Close;
-         Original.Position := 0;
-         doUnGZIP(Original, gZIPStream);
-         MemTable.LoadFromStream(gZIPStream);
-         vTempWriter.ListAdd(Result, MemTable);
-        Finally
-         Original.Free;
-         gZIPStream.Free;
-         vTempWriter.Free;
-         LDataSetList.Free;
-        End;
-       End
-      Else
-       TFDJSONInterceptor.JSONObjectToDataSets(oJsonObject, Result);
+      Try
+       Result.LoadFromJSON(LDataSetList.ToJSON);
+      Finally
+      End;
      End;
+    If (Not (Error)) Then
+     Begin
+      If Assigned(vOnEventConnection) Then
+       vOnEventConnection(True, 'ExecuteCommand Ok');
+     End;
+   End
+  Else
+   Begin
+    If Assigned(vOnEventConnection) Then
+     vOnEventConnection(False, MessageError);
    End;
-  If Assigned(vOnEventConnection) Then
-   vOnEventConnection(True, 'ExecuteCommand Ok');
  Except
   On E : Exception do
    Begin
-    vDSRConnection.SessionID := '';
     if Assigned(vOnEventConnection) then
      vOnEventConnection(False, E.Message);
    End;
  End;
- vDSRConnection.Free;
+ LDataSetList.Free;
  vRESTConnectionDB.Free;
-}
 End;
 
 Procedure TRESTDWDataBase.ExecuteProcedure(ProcName         : String;
-                                         Params           : TParams;
-                                         Var Error        : Boolean;
-                                         Var MessageError : String);
+                                           Params           : TParams;
+                                           Var Error        : Boolean;
+                                           Var MessageError : String);
 {
 Var
  vDSRConnection    : TRESTClientPooler;
@@ -1158,18 +1150,17 @@ End;
 
 Function TRESTDWDataBase.GetRestPoolers : TStringList;
 Var
- I                 : Integer;
- vTempList         : TStringList;
- vDSRConnection    : TRESTClientPooler;
+ vTempList   : TStringList;
+ vConnection : TDWPoolerMethodClient;
+ I           : Integer;
 Begin
-{
- SetConnectionOptions(vDSRConnection);
- vRESTConnectionDB := TSMPoolerMethodClient.Create(vDSRConnection, True);
- vRESTConnectionDB.Compression := vCompression;
- vRESTConnectionDB.Encoding    := GetEncoding(VEncondig);
-  Result           := TStringList.Create;
+ vConnection             := TDWPoolerMethodClient.Create(Nil);
+ vConnection.Host        := vRestWebService;
+ vConnection.Port        := vPoolerPort;
+ vConnection.Compression := vCompression;
+ Result := TStringList.Create;
  Try
-  vTempList        := vRESTConnectionDB.PoolersDataSet(vRestModule, '', vTimeOut, vLogin, vPassword);
+  vTempList := vConnection.GetPoolerList(vRestModule, vTimeOut, vLogin, vPassword);
   Try
     For I := 0 To vTempList.Count -1 do
      Result.Add(vTempList[I]);
@@ -1181,14 +1172,10 @@ Begin
  Except
   On E : Exception do
    Begin
-    vDSRConnection.SessionID := '';
     if Assigned(vOnEventConnection) then
      vOnEventConnection(False, E.Message);
    End;
  End;
- vDSRConnection.Free;
- vRESTConnectionDB.Free;
-}
 End;
 
 Function TRESTDWDataBase.GetStateDB: Boolean;
@@ -1210,13 +1197,14 @@ End;
 Constructor TRESTDWDataBase.Create(AOwner : TComponent);
 Begin
  Inherited;
- vLogin                    := '';
+ vLogin                    := 'testserver';
  vMyIP                     := '0.0.0.0';
+ vRestWebService           := '127.0.0.1';
  vCompression              := True;
  vPassword                 := vLogin;
- vRestModule               := 'TServerMethods1';
- vRestPooler               := vPassword;
- vPoolerPort               := 8081;
+ vRestModule               := '';
+ vRestPooler               := '';
+ vPoolerPort               := 8082;
  vProxy                    := False;
  vProxyOptions             := TProxyOptions.Create;
  vAutoCheckData            := TAutoCheckData.Create;
@@ -1259,65 +1247,56 @@ End;
 
 Function  TRESTDWPoolerList.TryConnect : Boolean;
 Var
- vTempResult       : String;
- vDSRConnection    : TRESTClientPooler;
+ vTempResult : String;
+ vConnection : TDWPoolerMethodClient;
 Begin
- Result := False;
- SetConnectionOptions(vDSRConnection);
-{
- vRESTConnectionDB           := TSMPoolerMethodClient.Create(vDSRConnection, True);
- vRESTConnectionDB.Encoding  := TEncoding.ASCII;
+ Result       := False;
+ vConnection  := TDWPoolerMethodClient.Create(Nil);
+ vConnection.Host := vRestWebService;
+ vConnection.Port := vPoolerPort;
  Try
   vPoolerList.Clear;
-  vPoolerList.Assign(vRESTConnectionDB.PoolersDataSet(vPoolerPrefix, vTempResult, 3000, vLogin, vPassword));
+  vPoolerList.Assign(vConnection.GetPoolerList(vPoolerPrefix, 3000, vLogin, vPassword));
   Result      := True;
  Except
-  On E : Exception do
-   Begin
-    vDSRConnection.SessionID := '';
-   End;
  End;
- vDSRConnection.Free;
- vRESTConnectionDB.Free;
-}
+ vConnection.Free;
 End;
 
 Function  TRESTDWDataBase.TryConnect : Boolean;
 Var
- vTempSend,
- vTempResult       : String;
- vDSRConnection    : TRESTClientPooler;
+ vTempSend   : String;
+ vConnection : TDWPoolerMethodClient;
 Begin
- If vRestPooler = '' Then
-  vTempSend := 'ping'
- Else
-  vTempSend := vRestPooler;
-{
- SetConnectionOptions(vDSRConnection);
- vRESTConnectionDB := TSMPoolerMethodClient.Create(vDSRConnection, True);
- vRESTConnectionDB.Encoding := GetEncoding(VEncondig);
+ Result       := False;
+ vConnection  := TDWPoolerMethodClient.Create(Nil);
  Try
-  vTempResult := vRESTConnectionDB.EchoPooler(vTempSend, vRestModule, '', vTimeOut, vLogin, vPassword);
-  vMyIP       := vTempResult;
+  vTempSend   := vConnection.EchoPooler(vRestURL, vRestPooler, vTimeOut, vLogin, vPassword);
+  Result      := Trim(vTempSend) <> '';
+  If Result Then
+   vMyIP       := vTempSend
+  Else
+   vMyIP       := '';
   If csDesigning in ComponentState Then
-   If Trim(vTempResult) = '' Then Raise Exception.Create(PChar('Error : ' + #13 + 'Authentication Error...'));
+   If Not Result Then Raise Exception.Create(PChar('Error : ' + #13 + 'Authentication Error...'));
   If Trim(vMyIP) = '' Then
-   If Assigned(vOnEventConnection) Then
-    vOnEventConnection(False, 'Authentication Error...');
+   Begin
+    Result      := False;
+    If Assigned(vOnEventConnection) Then
+     vOnEventConnection(False, 'Authentication Error...');
+   End;
  Except
   On E : Exception do
    Begin
+    Result      := False;
+    vMyIP       := '';
     If csDesigning in ComponentState Then
      Raise Exception.Create(PChar(E.Message));
-    vDSRConnection.SessionID := '';
     if Assigned(vOnEventConnection) then
      vOnEventConnection(False, E.Message);
    End;
  End;
- Result      := Trim(vTempResult) <> '';
- vDSRConnection.Free;
- vRESTConnectionDB.Free;
-}
+ vConnection.Free;
 End;
 
 Procedure TRESTDWDataBase.SetConnection(Value : Boolean);
@@ -1411,7 +1390,7 @@ Begin
  vReadData                         := False;
  vCascadeDelete                    := True;
  vSQL                              := TStringList.Create;
-// vSQL.OnChange                     := OnChangingSQL;
+ vSQL.OnChange                     := OnChangingSQL;
  vParams                           := TParams.Create;
 // vCacheDataDB                      := Self.CloneSource;
  vUpdateTableName                  := '';
@@ -1457,6 +1436,7 @@ Begin
  If vCacheDataDB <> Nil Then
   vCacheDataDB.Free;
  OldData.Free;
+ vInactive := False;
  Inherited;
 End;
 
@@ -1494,11 +1474,11 @@ Var
   If FCurrentPos^ = ':' Then
    Begin
     Inc(FCurrentPos);
-    if CharInSet(vOldChar,[' ', '=', '-', '+', '<', '>', '(', ')', ':', '|']) then
+    if vOldChar in [' ', '=', '-', '+', '<', '>', '(', ')', ':', '|'] then
      Begin
       While Not (FCurrentPos^ = #0) Do
        Begin
-        if CharInSet(FCurrentPos^,['0'..'9', 'A'..'Z','a'..'z', '_']) then
+        if FCurrentPos^ in ['0'..'9', 'A'..'Z','a'..'z', '_'] then
 
          Result := Result + FCurrentPos^
         Else
@@ -1517,7 +1497,7 @@ Begin
  FCurrentPos := PChar(vTemp);
  While Not (FCurrentPos^ = #0) do
   Begin
-   If Not CharInSet(FCurrentPos^, [#0..' ', ',',
+   If Not (FCurrentPos^ in [#0..' ', ',',
                            '''', '"',
                            '0'..'9', 'A'..'Z',
                            'a'..'z', '_',
@@ -1783,20 +1763,20 @@ End;
 Function  TRESTDWClientSQL.ApplyUpdates(Var Error : String) : Boolean;
 {
 var
- LDeltaList    : TJSONBufferObject;
+ LDeltaList    : TJSONValue;
  vError        : Boolean;
  vMessageError : String;
  oJsonObject   : TJSONObject;
  MemTable      : TDataset;
  Original      : TStringStream;
  gZIPStream    : TMemoryStream;
- Function GetDeltas : TJSONBufferObject;
+ Function GetDeltas : TJSONValue;
  Begin
   UpdateOptions.CountUpdatedRecords := vCacheUpdateRecords;
   If State In [dsEdit, dsInsert] Then
    Post;
-  Result := TJSONBufferObject.Create;
-  TJSONBufferObjectWriter.ListAdd(Result, vUpdateTableName, TDataset(Self));
+  Result := TJSONValue.Create;
+  TJSONValueWriter.ListAdd(Result, vUpdateTableName, TDataset(Self));
  End;
 }
 Begin
@@ -1814,7 +1794,7 @@ Begin
      oJsonObject   := TJSONObject.Create;
       TFDJSONInterceptor.DataSetsToJSONObject(LDeltaList, oJsonObject);
       LDeltaList.Free;
-      LDeltaList   := TJSONBufferObject.Create;
+      LDeltaList   := TJSONValue.Create;
       MemTable     := TDataset.Create(Nil);
       Original     := TStringStream.Create(oJsonObject.ToString);
       gZIPStream   := TMemoryStream.Create;
@@ -1827,7 +1807,7 @@ Begin
       MemTable.Insert;
       TBlobField(MemTable.FieldByName('compress')).LoadFromStream(gZIPStream);
       MemTable.Post;
-      TJSONBufferObjectWriter.ListAdd(LDeltaList, 'TempTable', MemTable);
+      TJSONValueWriter.ListAdd(LDeltaList, 'TempTable', MemTable);
      Finally
       MemTable.Free;
       Original.Free;
@@ -2017,8 +1997,11 @@ End;
 
 Procedure TRESTDWClientSQL.Open;
 Begin
- If Not vActive Then
-  SetActiveDB(True);
+ If Not vInactive Then
+  Begin
+   If Not vActive Then
+    SetActiveDB(True);
+  End;
  If vActive Then
   Inherited Open;
 End;
@@ -2037,7 +2020,7 @@ End;
 
 Procedure TRESTDWClientSQL.OpenCursor(InfoQuery: Boolean);
 Begin
- If Not vBeforeClone Then
+ If Not (vBeforeClone) And Not(vInactive) Then
   Begin
    vBeforeClone := True;
    If vRESTDataBase <> Nil Then
@@ -2078,7 +2061,26 @@ Begin
       End;
     End
    Else
-    Raise Exception.Create(PChar('Empty Database Property'));  
+    Raise Exception.Create(PChar('Empty Database Property'));
+  End
+ Else If vInactive Then
+  Begin
+   Try
+    Inherited OpenCursor(InfoQuery);
+   Except
+    On E : Exception do
+     Begin
+      If csDesigning in ComponentState Then
+       Raise Exception.Create(PChar(E.Message))
+      Else
+       Begin
+        If Assigned(vOnGetDataError) Then
+         vOnGetDataError(False, E.Message)
+        Else
+         Raise Exception.Create(PChar(E.Message));
+       End;
+     End;
+   End;
   End;
 End;
 
@@ -2116,7 +2118,7 @@ Begin
  Inherited Loaded;
 End;
 
-Procedure TRESTDWClientSQL.CloneDefinitions(Source : TDataset; aSelf : TRESTDWClientSQL);
+Procedure TRESTDWClientSQL.CloneDefinitions(Source : TJvMemoryData; aSelf : TJvMemoryData);
 Var
  I, A : Integer;
 Begin
@@ -2141,7 +2143,7 @@ Begin
     End;
   End;
  If aSelf.FieldDefs.Count > 0 Then
-  aSelf.CreateDataSet;
+  aSelf.Open;
 End;
 
 Procedure TRESTDWClientSQL.PrepareDetailsNew;
@@ -2200,35 +2202,26 @@ End;
 
 Function TRESTDWClientSQL.GetData : Boolean;
 Var
- LDataSetList  : TJSONBufferObject;
+ LDataSetList  : TJSONValue;
  vError        : Boolean;
  vMessageError : String;
- vTempTable    : TDataset;
 Begin
  Result := False;
  LDataSetList := nil;
  Self.Close;
-{
  If Assigned(vRESTDataBase) Then
   Begin
    Try
     LDataSetList := vRESTDataBase.ExecuteCommand(vSQL, vParams, vError, vMessageError, False);
     If (LDataSetList <> Nil) And (Not (vError)) Then
      Begin
-      vTempTable := TDataset.Create(Nil);
-      vTempTable.UpdateOptions.CountUpdatedRecords := False;
+//      vTempTable.UpdateOptions.CountUpdatedRecords := False;
       Try
-       Assert(TJSONBufferObjectReader.GetListCount(LDataSetList) = 1);
-       vTempTable.AppendData(TJSONBufferObjectReader.GetListValue(LDataSetList, 0));
-       CloneDefinitions(vTempTable, Self);
-       If LDataSetList <> Nil Then
-        Begin
-         AppendData(TJSONBufferObjectReader.GetListValue(LDataSetList, 0));
-         Result := True;
-        End;
+       Self.FieldDefs.Clear;
+       LDataSetList.WriteToDataset(dtFull, LDataSetList.ToJSON, Self);
+       Result := True;
       Except
       End;
-      vTempTable.Free;
      End;
    Except
     If LDataSetList <> Nil Then
@@ -2249,7 +2242,6 @@ Begin
   End
  Else
   Raise Exception.Create(PChar('Empty Database Property'));
- }
 End;
 
 Procedure TRESTDWClientSQL.SaveToStream(var Stream: TMemoryStream);
@@ -2259,6 +2251,11 @@ End;
 
 Procedure TRESTDWClientSQL.SetActiveDB(Value : Boolean);
 Begin
+ If vInactive then
+  Begin
+   TJvMemoryData(Self).Active := Value;
+   Exit;
+  End;
  vActive := False;
  If (vRESTDataBase <> Nil) And (Value) Then
   Begin
@@ -2341,5 +2338,10 @@ procedure TRESTDWStoredProc.SetDataBase(const Value: TRESTDWDataBase);
 begin
  vRESTDataBase := Value;
 end;
+
+Procedure TRESTDWDataBase.SetMyIp(Value: String);
+Begin
+
+End;
 
 end.

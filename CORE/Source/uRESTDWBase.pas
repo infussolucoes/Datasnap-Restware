@@ -25,30 +25,37 @@ interface
 
 Uses
      {$IFDEF FPC}
-     SysUtils,           Classes, SysTypes,   ServerUtils, {$IFDEF WINDOWS}Windows,{$ENDIF}
-     IdContext,          IdHTTPServer,        IdCustomHTTPServer,    IdSSLOpenSSL, IdSSL,
-     IdAuthentication,   IdHTTPHeaderInfo,    uDWJSONTools,          uDWConsts,    IdHTTP,
-     uDWJSONObject,      IdMultipartFormData, IdMessageCoder,        IdMessageCoderMIME,
-     IdMessage,          IdGlobal,            IdGlobalProtocols;
+     SysUtils,                      Classes,            ServerUtils, {$IFDEF WINDOWS}Windows,{$ENDIF}
+     IdContext,                     IdHTTPServer,       IdCustomHTTPServer,  IdSSLOpenSSL,    IdSSL,
+     IdAuthentication,              IdHTTPHeaderInfo,
+     IdHTTP, uDWJSONParser,         uDWConstsData,       IdMultipartFormData, IdMessageCoder,
+     IdMessageCoderMIME, IdMessage, uDWJSONObject, IdGlobal,            IdGlobalProtocols;
      {$ELSE}
-     System.SysUtils,    System.Classes,      SysTypes, ServerUtils, Windows,
-     IdContext,          IdHTTPServer,        IdCustomHTTPServer,    IdSSLOpenSSL, IdSSL,
-     IdAuthentication,   IdHTTPHeaderInfo,    uDWJSONTools,          uDWConsts,    IdHTTP,
-     uDWJSONObject,      IdMultipartFormData, IdMessageCoder,        IdMessageCoderMIME,
-     IdMessage,          IdGlobal,            IdGlobalProtocols;
+     {$IF CompilerVersion < 21}
+     SysUtils, Classes, EncdDecd,
+     {$ELSE}
+     System.SysUtils, System.Classes,
+     {$IFEND}
+     ServerUtils, Windows,  uDWConstsData,       IdMultipartFormData,
+     IdContext,             IdHTTPServer,        IdCustomHTTPServer,    IdSSLOpenSSL,    IdSSL,
+     IdAuthentication,      IdHTTPHeaderInfo,
+     IdHTTP, uDWJSONParser, uDWJSONObject,       IdMessageCoder,
+     IdMessageCoderMIME,    IdMessage,           IdGlobalProtocols,     IdGlobal;
      {$ENDIF}
 
 Type
  TLastRequest  = Procedure (Value     : String)                  Of Object;
  TLastResponse = Procedure (Value     : String)                  Of Object;
- TReplyEvent   = Procedure (SendType  : TSendEvent;
-                            Arguments : TArguments)              Of Object;
  TEventContext = Procedure (AContext      : TIdContext;
                             ARequestInfo  : TIdHTTPRequestInfo;
                             AResponseInfo : TIdHTTPResponseInfo) Of Object;
 
 Type
- TCallBack =Procedure (JSon:String;DWParams:TDWParams) of Object;
+ TCallBack     = Procedure (JSon : String; DWParams : TDWParams) Of Object;
+
+Type
+ TServerMethodClass = Class(TComponent)
+End;
 
 TThread_Request = class(TThread)
   FHttpRequest :TIdHTTP;
@@ -109,17 +116,21 @@ Type
                           ARequestInfo  : TIdHTTPRequestInfo;
                           AResponseInfo : TIdHTTPResponseInfo);
  Private
+  vDataCompress,
   vActive          : Boolean;
   vProxyOptions    : TProxyOptions;
   HTTPServer       : TIdHTTPServer;
   vServicePort     : Integer;
-  vServerMethod    : TClass;
+  vServerBaseMethod,
+  vServerMethod    : TComponentClass;
   vServerParams    : TServerParams;
   vLastRequest     : TLastRequest;
   vLastResponse    : TLastResponse;
-  {$IFDEF FPC} {$IFDEF WINDOWS}
-  vCriticalSection : TRTLCriticalSection;
-  {$ENDIF}{$ENDIF}
+  {$IFDEF FPC}
+   {$IFDEF WINDOWS}
+    vCriticalSection : TRTLCriticalSection;
+   {$ENDIF}
+  {$ENDIF}
   lHandler         : TIdServerIOHandlerSSLOpenSSL;
   aSSLVersion      : TIdSSLVersion;
   vServerContext,
@@ -131,16 +142,34 @@ Type
   Procedure GetSSLPassWord(Var Password: String);
   Procedure SetActive(Value : Boolean);
   Function  GetSecure : Boolean;
+  Procedure SetServerMethod(Value : TComponentClass);
+  Procedure GetPoolerList(ServerMethodsClass : TComponent;
+                          Var PoolerList     : String);
+  Function  ServiceMethods(BaseObject   : TComponent;
+                           AContext     : TIdContext;
+                           UrlMethod    : String;
+                           Var DWParams : TDWParams;
+                           Var JSONStr  : String) : Boolean;
+  Procedure EchoPooler(ServerMethodsClass : TComponent;
+                       AContext           : TIdContext;
+                       Var Pooler, MyIP   : String);
+  Procedure ExecuteCommandPureJSON(ServerMethodsClass : TComponent;
+                                   Var Pooler         : String;
+                                   Var DWParams       : TDWParams);
+  Procedure ExecuteCommandJSON(ServerMethodsClass     : TComponent;
+                               Var Pooler             : String;
+                               Var DWParams           : TDWParams);
  Public
   Constructor Create(AOwner  : TComponent);Override; //Cria o Componente
   Destructor  Destroy;Override;                      //Destroy a Classe
  Published
   Property Active                : Boolean         Read vActive                Write SetActive;
+  Property DataCompression       : Boolean         Read vDatacompress          Write vDatacompress;
   Property Secure                : Boolean         Read GetSecure;
   Property ServicePort           : Integer         Read vServicePort           Write vServicePort;  //A Porta do Serviço do DataSet
   Property ProxyOptions          : TProxyOptions   Read vProxyOptions          Write vProxyOptions; //Se tem Proxy diz quais as opções
   Property ServerParams          : TServerParams   Read vServerParams          Write vServerParams;
-  Property ServerMethodClass     : TClass          Read vServerMethod          Write vServerMethod;
+  Property ServerMethodClass     : TComponentClass Read vServerMethod          Write SetServerMethod;
   Property SSLPrivateKeyFile     : String          Read aSSLPrivateKeyFile     Write aSSLPrivateKeyFile;
   Property SSLPrivateKeyPassword : String          Read aSSLPrivateKeyPassword Write aSSLPrivateKeyPassword;
   Property SSLCertFile           : String          Read aSSLCertFile           Write aSSLCertFile;
@@ -168,13 +197,14 @@ Type
   vPassword,
   vHost             : String;
   vPort             : Integer;
+  vDatacompress,
   vThreadRequest,
   vAutenticacao     : Boolean;
   vTransparentProxy : TIdProxyConnectionInfo;
   vRequestTimeOut   : Integer;
   Procedure SetUserName(Value : String);
   Procedure SetPassword(Value : String);
-  Procedure SetUrlPath(Value : String);
+  Procedure SetUrlPath(Value  : String);
  Public
   //Métodos, Propriedades, Variáveis, Procedures e Funções Publicas
   Function    SendEvent(EventData  : String;
@@ -187,6 +217,7 @@ Type
   Destructor  Destroy;Override;
  Published
   //Métodos e Propriedades
+  Property DataCompression  : Boolean                Read vDatacompress     Write vDatacompress;
   Property UrlPath          : String                 Read vUrlPath          Write SetUrlPath;
   Property Encoding         : TEncodeSelect          Read vRSCharset        Write vRSCharset;
   Property TypeRequest      : TTypeRequest           Read vTypeRequest      Write vTypeRequest       Default trHttp;
@@ -202,7 +233,7 @@ End;
 
 implementation
 
-Uses uDWJSONParser;
+Uses uDWDatamodule, uRESTDWPoolerDB, SysTypes, uDWConsts, uDWJSONTools;
 
 Constructor TRESTClientPooler.Create(AOwner: TComponent);
 Begin
@@ -218,6 +249,7 @@ Begin
  vAutenticacao                   := True;
  vRequestTimeOut                 := 10000;
  vThreadRequest                  := False;
+ vDatacompress                   := True;
 End;
 
 Destructor  TRESTClientPooler.Destroy;
@@ -229,10 +261,11 @@ End;
 
 Function TRESTClientPooler.SendEvent(EventData  : String;
                                      Var Params : TDWParams;
-                                     EventType : TSendEvent = sePOST;
-									 CallBack : TCallBack= nil) : String;
+                                     EventType  : TSendEvent = sePOST;
+                  									 CallBack   : TCallBack= nil) : String;
 Var
  vResult,
+ vResultSTR,
  vURL,
  vTpRequest    : String;
  vResultParams : TMemoryStream;
@@ -240,7 +273,6 @@ Var
  SendParams    : TIdMultipartFormDataStream;
  ss            : TStringStream;
  thd : TThread_Request;
-
  Procedure SetData(InputValue     : String;
                    Var ParamsData : TDWParams;
                    Var ResultJSON : String);
@@ -271,21 +303,21 @@ Var
           Continue;
          If GetObjectName(bJsonValue[0].Value.Value) <> toParam Then
           Break;
-         JSONParam := TJSONParam.Create(GetEncoding(vRSCharset));
+         JSONParam := TJSONParam.Create{$IFNDEF FPC}{$if CompilerVersion > 21}(GetEncoding(TEncodeSelect(vRSCharset))){$IFEND}{$ENDIF};
          Try
           JSONParam.ParamName       := bJsonValue[4].Key;
           JSONParam.ObjectValue     := GetValueType(bJsonValue[3].Value.Value);
           JSONParam.ObjectDirection := GetDirectionName(bJsonValue[1].Value.Value);
           JSONParam.Encoded         := GetBooleanFromString(bJsonValue[2].Value.Value);
           If JSONParam.Encoded Then
-           vValue := DecodeStrings(bJsonValue[4].Value.Value{$IFNDEF FPC}, GetEncoding(vRSCharset){$ENDIF})
+           vValue := DecodeStrings(bJsonValue[4].Value.Value{$IFNDEF FPC}{$if CompilerVersion > 21}, GetEncoding(TEncodeSelect(vRSCharset)){$IFEND}{$ENDIF})
           Else
            vValue := bJsonValue[4].Value.Value;
           JSONParam.SetValue(vValue);
           {TODO CRISTIANO BAROBSA}  //parametro criandos no servidor
           If ParamsData.ItemsString[JSONParam.ParamName] = Nil Then
           begin
-            JSONParamNew           := TJSONParam.Create(ParamsData.Encoding);
+            JSONParamNew           := TJSONParam.Create{$IFNDEF FPC}{$if CompilerVersion > 21}(ParamsData.Encoding){$IFEND}{$ENDIF};
             JSONParamNew.ParamName := JSONParam.ParamName;
             JSONParamNew.SetValue(JSONParam.Value, JSONParam.Encoded);
             ParamsData.Add(JSONParamNew);
@@ -302,7 +334,7 @@ Var
   Finally
    If vTempValue <> '' Then
     Begin
-//     ResultJSON := DecodeStrings(vTempValue{$IFNDEF FPC}, GetEncoding(vRSCharset){$ENDIF});
+//     ResultJSON := DecodeStrings(vTempValue{$IFNDEF FPC}, GetEncoding(uDWConsts.TEncodeSelect(vRSCharset)){$IFEND});
      ResultJSON := vTempValue;
     End;
   End;
@@ -319,7 +351,15 @@ Var
                                            ovMemo,   ovGraphic, ovFmtMemo,  ovOraBlob, ovOraClob] Then
        Begin
         ss := TStringStream.Create(DWParams.Items[I].ToJSON);
-        SendParamsData.AddObject(DWParams.Items[I].ParamName, 'multipart/form-data', HttpRequest.Request.Charset, ss);
+        {$IFNDEF FPC}
+         {$if CompilerVersion > 21}
+          SendParamsData.AddObject(DWParams.Items[I].ParamName, 'multipart/form-data', HttpRequest.Request.Charset, ss);
+         {$ELSE}
+          SendParamsData.AddObject(DWParams.Items[I].ParamName, 'multipart/form-data', HttpRequest.Request.Charset, ss);
+         {$IFEND}
+        {$ELSE}
+         SendParamsData.AddObject(DWParams.Items[I].ParamName, 'multipart/form-data', HttpRequest.Request.Charset, ss);
+        {$ENDIF}
        End
       Else
        SendParamsData.AddFormField(DWParams.Items[I].ParamName, DWParams.Items[I].ToJSON);
@@ -327,6 +367,7 @@ Var
    End;
  End;
 Begin
+ SendParams := Nil;
  If vThreadRequest Then
   Begin
    thd := TThread_Request.Create;
@@ -349,7 +390,7 @@ Begin
     thd.vRSCharset      :=   vRSCharset;
     thd.FCallBack       :=  CallBack;
    Finally
-    thd.START;
+    thd.Execute;
    End;
    Exit;
   End;
@@ -388,7 +429,14 @@ Begin
          HttpRequest.Request.ContentType     := 'application/x-www-form-urlencoded';
          HttpRequest.Request.ContentEncoding := 'multipart/form-data';
          StringStream          := TStringStream.Create('');
-         HttpRequest.Post(vURL, SendParams, StringStream);
+         If vDatacompress Then
+          Begin
+           vResult      := HttpRequest.Post(vURL, SendParams);
+           ZDecompressStr(vResult, vResultSTR);
+           StringStream := TStringStream.Create(vResultSTR);
+          End
+         Else
+          HttpRequest.Post(vURL, SendParams, StringStream);
          StringStream.Position := 0;
         End
        Else
@@ -398,7 +446,8 @@ Begin
          vResult      := HttpRequest.Get(EventData);
          StringStream := TStringStream.Create(vResult);
         End;
-//       StringStream.WriteBuffer(#0' ', 1);
+       If SendParams <> Nil Then
+        SendParams.Free;
        StringStream.Position := 0;
        Try
         SetData(StringStream.DataString, Params, Result);
@@ -422,9 +471,9 @@ Begin
      Else If EventType = seDELETE Then
       Begin
        Try
-         HttpRequest.Request.ContentType := 'application/json';
-         HttpRequest.Delete(vURL);
-         Result := GetPairJSON('OK', 'DELETE COMMAND OK');
+        HttpRequest.Request.ContentType := 'application/json';
+        HttpRequest.Delete(vURL);
+        Result := GetPairJSON('OK', 'DELETE COMMAND OK');
        Except
         On e:exception Do
          Begin
@@ -522,7 +571,190 @@ Begin
   Inherited;
 End;
 
-{ TRESTServicePooler }
+Procedure TRESTServicePooler.GetPoolerList(ServerMethodsClass : TComponent;
+                                           Var PoolerList     : String);
+Var
+ I : Integer;
+Begin
+ If ServerMethodsClass <> Nil Then
+  Begin
+   For I := 0 To ServerMethodsClass.ComponentCount -1 Do
+    Begin
+     If ServerMethodsClass.Components[i] is TRESTDWPoolerDB Then
+      Begin
+       If PoolerList = '' then
+        PoolerList := Format('%s.%s', [ServerMethodsClass.ClassName, ServerMethodsClass.Components[i].Name])
+       Else
+        PoolerList := PoolerList + '|' + Format('%s.%s', [ServerMethodsClass.ClassName, ServerMethodsClass.Components[i].Name]);
+      End;
+    End;
+  End;
+End;
+
+Procedure TRESTServicePooler.EchoPooler(ServerMethodsClass : TComponent;
+                                        AContext           : TIdContext;
+                                        Var Pooler,
+                                            MyIP           : String);
+Var
+ I : Integer;
+Begin
+ If ServerMethodsClass <> Nil Then
+  Begin
+   For I := 0 To ServerMethodsClass.ComponentCount -1 Do
+    Begin
+     If ServerMethodsClass.Components[i] is TRESTDWPoolerDB Then
+      Begin
+       If Pooler = Format('%s.%s', [ServerMethodsClass.ClassName, ServerMethodsClass.Components[i].Name]) Then
+        Begin
+         MyIP := AContext.Connection.Socket.Binding.IP;
+         Break;
+        End;
+      End;
+    End;
+  End;
+End;
+
+Procedure TRESTServicePooler.ExecuteCommandPureJSON(ServerMethodsClass : TComponent;
+                                                    Var Pooler         : String;
+                                                    Var DWParams       : TDWParams);
+Var
+ I         : Integer;
+ vTempJSON : TJSONValue;
+ vError,
+ vExecute  : Boolean;
+ vMessageError : String;
+Begin
+ If ServerMethodsClass <> Nil Then
+  Begin
+   For I := 0 To ServerMethodsClass.ComponentCount -1 Do
+    Begin
+     If ServerMethodsClass.Components[i] is TRESTDWPoolerDB Then
+      Begin
+       If UpperCase(Pooler) = UpperCase(Format('%s.%s', [ServerMethodsClass.ClassName, ServerMethodsClass.Components[i].Name])) then
+        Begin
+         If TRESTDWPoolerDB(ServerMethodsClass.Components[i]).RESTDriver <> Nil Then
+          Begin
+           vExecute := StringToBoolean(DWParams.ItemsString['Execute'].Value);
+           vError   := StringToBoolean(DWParams.ItemsString['Error'].Value);
+           vTempJSON := TRESTDWPoolerDB(ServerMethodsClass.Components[i]).RESTDriver.ExecuteCommand(DWParams.ItemsString['SQL'].Value,
+                                                                                                    vError,
+                                                                                                    vMessageError,
+                                                                                                    vExecute);
+           DWParams.ItemsString['MessageError'].SetValue(vMessageError);
+           DWParams.ItemsString['Error'].SetValue(BooleanToString(vError));
+           DWParams.ItemsString['Result'].SetValue(vTempJSON.ToJSON);
+          End;
+         Break;
+        End;
+      End;
+    End;
+  End;
+End;
+
+Procedure TRESTServicePooler.ExecuteCommandJSON(ServerMethodsClass : TComponent;
+                                                Var Pooler         : String;
+                                                Var DWParams       : TDWParams);
+Var
+ I         : Integer;
+ vTempJSON : TJSONValue;
+ vError,
+ vExecute  : Boolean;
+ vMessageError : String;
+ DWParamsD     : TDWParams;
+Begin
+ DWParamsD := Nil;
+ If ServerMethodsClass <> Nil Then
+  Begin
+   For I := 0 To ServerMethodsClass.ComponentCount -1 Do
+    Begin
+     If ServerMethodsClass.Components[i] is TRESTDWPoolerDB Then
+      Begin
+       If UpperCase(Pooler) = UpperCase(Format('%s.%s', [ServerMethodsClass.ClassName, ServerMethodsClass.Components[i].Name])) then
+        Begin
+         If TRESTDWPoolerDB(ServerMethodsClass.Components[i]).RESTDriver <> Nil Then
+          Begin
+           vExecute := StringToBoolean(DWParams.ItemsString['Execute'].Value);
+           vError   := StringToBoolean(DWParams.ItemsString['Error'].Value);
+           If DWParams.ItemsString['Params'] <> Nil Then
+            Begin
+             DWParamsD := TDWParams.Create;
+             DWParamsD.FromJSON(DWParams.ItemsString['Params'].Value);
+            End;
+           If DWParamsD <> Nil Then
+            Begin
+             vTempJSON := TRESTDWPoolerDB(ServerMethodsClass.Components[i]).RESTDriver.ExecuteCommand(DWParams.ItemsString['SQL'].Value,
+                                                                                                      DWParamsD, vError, vMessageError,
+                                                                                                      vExecute);
+             DWParamsD.Free;
+            End
+           Else
+            vTempJSON := TRESTDWPoolerDB(ServerMethodsClass.Components[i]).RESTDriver.ExecuteCommand(DWParams.ItemsString['SQL'].Value,
+                                                                                                     vError,
+                                                                                                     vMessageError,
+                                                                                                     vExecute);
+           DWParams.ItemsString['MessageError'].SetValue(vMessageError);
+           DWParams.ItemsString['Error'].SetValue(BooleanToString(vError));
+           DWParams.ItemsString['Result'].SetValue(vTempJSON.ToJSON);
+          End;
+         Break;
+        End;
+      End;
+    End;
+  End;
+End;
+
+Function TRESTServicePooler.ServiceMethods(BaseObject   : TComponent;
+                                           AContext     : TIdContext;
+                                           UrlMethod    : String;
+                                           Var DWParams : TDWParams;
+                                           Var JSONStr  : String) : Boolean;
+Var
+ vResult,
+ vResultIP,
+ vUrlMethod   :  String;
+ PoolerList   :  TStringList;
+Begin
+ Result       := False;
+ vUrlMethod   := UpperCase(UrlMethod);
+ If vUrlMethod = UpperCase('GetPoolerList') Then
+  Begin
+   Result     := True;
+   GetPoolerList(BaseObject, vResult);
+   DWParams.ItemsString['Result'].SetValue(vResult);
+   JSONStr    := TReplyOK;
+  End
+ Else If vUrlMethod = UpperCase('EchoPooler') Then
+  Begin
+   vResult    := DWParams.ItemsString['Pooler'].Value;
+   EchoPooler(BaseObject, AContext, vResult, vResultIP);
+   DWParams.ItemsString['Result'].SetValue(vResultIP);
+   Result     := vResultIP <> '';
+   If Result Then
+    JSONStr    := TReplyOK
+   Else
+    JSONStr    := TReplyNOK;
+  End
+ Else If vUrlMethod = UpperCase('ExecuteCommandPureJSON') Then
+  Begin
+   vResult    := DWParams.ItemsString['Pooler'].Value;
+   ExecuteCommandPureJSON(BaseObject, vResult, DWParams);
+   Result     := (DWParams.ItemsString['Result'].Value <> '');
+   If Result Then
+    JSONStr    := TReplyOK
+   Else
+    JSONStr    := TReplyNOK;
+  End
+ Else If vUrlMethod = UpperCase('ExecuteCommandJSON') Then
+  Begin
+   vResult    := DWParams.ItemsString['Pooler'].Value;
+   ExecuteCommandJSON(BaseObject, vResult, DWParams);
+   Result     := (DWParams.ItemsString['Result'].Value <> '');
+   If Result Then
+    JSONStr    := TReplyOK
+   Else
+    JSONStr    := TReplyNOK;
+  End;
+End;
 
 Procedure TRESTServicePooler.aCommandGet(AContext      : TIdContext;
                                          ARequestInfo  : TIdHTTPRequestInfo;
@@ -532,6 +764,7 @@ Var
  boundary,
  startboundary,
  vReplyString,
+ vReplyStringResult,
  Cmd , UrlMethod,
  tmp, JSONStr,
  sFile, sContentType, sCharSet       : String;
@@ -563,39 +796,66 @@ Var
 Begin
  vTempServerMethods := Nil;
  Cmd := Trim(ARequestInfo.RawHTTPCommand);
-
+ {$IFNDEF FPC}
+  {$if CompilerVersion > 21}
+   AResponseInfo.CustomHeaders.AddValue ('Access-Control-Allow-Origin','*');
+  {$ELSE}
+   AResponseInfo.CustomHeaders.Add('Access-Control-Allow-Origin=*');
+  {$IFEND}
+ {$ELSE}
   AResponseInfo.CustomHeaders.AddValue ('Access-Control-Allow-Origin','*');
-  sCharSet:='';
-
- If (UpperCase(Copy (Cmd, 1, 3)) = 'GET' ) then
- begin
-   if (Pos ('.HTML',UpperCase(Cmd))>0 ) then
-   begin
+ {$ENDIF}
+ sCharSet:='';
+ If (UpperCase(Copy (Cmd, 1, 3)) = 'GET') Then
+  Begin
+   If (Pos ('.HTML',UpperCase(Cmd))>0 ) Then
+    Begin
      sContentType:='text/html';
-	 sCharSet := 'utf-8';
-   end 
-   else if (Pos ('.PNG',UpperCase(Cmd))>0 ) then  sContentType:='image/png'
-   else if (Pos ('.ICO',UpperCase(Cmd))>0 ) then  sContentType:='image/ico'
-   else if (Pos ('.GIF',UpperCase(Cmd))>0 ) then  sContentType:='image/gif'
-   else if (Pos ('.JPG',UpperCase(Cmd))>0 ) then  sContentType:='image/jpg'
-   else if (Pos ('.JS',UpperCase(Cmd))>0 ) then   sContentType:='application/javascript'
-   else if (Pos ('.PDF',UpperCase(Cmd))>0 ) then   sContentType:='application/pdf'
-   else if (Pos ('.CSS',UpperCase(Cmd))>0 ) then  sContentType:='text/css';
-
-   sFile:=FRootPath+ARequestInfo.URI;
-   if FileExists(sFile) then
-   begin
-      AResponseInfo.ContentType :=sContentType ;
-  	  if (sCharSet<>'') then
-      AResponseInfo.CharSet := sCharSet;
-      AResponseInfo.ContentStream := TIdReadFileExclusiveStream.Create(sFile);
-      AResponseInfo.WriteContent;
-      exit;
-   end;  
- end;
-
+	   sCharSet := 'utf-8';
+    End
+   Else If (Pos ('.PNG', UpperCase(Cmd)) > 0) Then
+    sContentType := 'image/png'
+   Else If (Pos ('.ICO', UpperCase(Cmd)) > 0) Then
+    sContentType := 'image/ico'
+   Else If (Pos ('.GIF', UpperCase(Cmd)) > 0) Then
+    sContentType := 'image/gif'
+   Else If (Pos ('.JPG', UpperCase(Cmd)) > 0) Then
+    sContentType := 'image/jpg'
+   Else If (Pos ('.JS', UpperCase(Cmd)) > 0)  Then
+    sContentType := 'application/javascript'
+   Else If (Pos ('.PDF', UpperCase(Cmd)) > 0) Then
+    sContentType := 'application/pdf'
+   Else If (Pos ('.CSS',UpperCase(Cmd)) > 0) Then
+    sContentType:='text/css';
+   {$IFNDEF FPC}
+    {$if CompilerVersion > 21}
+     sFile := FRootPath+ARequestInfo.URI;
+    {$ELSE}
+     sFile := FRootPath+ARequestInfo.Command;
+    {$IFEND}
+   {$ELSE}
+    sFile := FRootPath+ARequestInfo.URI;
+   {$ENDIF}
+   If FileExists(sFile) then
+    Begin
+     AResponseInfo.ContentType := sContentType;
+     {$IFNDEF FPC}
+      {$if CompilerVersion > 21}
+     	 If (sCharSet <> '') Then
+        AResponseInfo.CharSet := sCharSet;
+      {$IFEND}
+     {$ENDIF}
+     AResponseInfo.ContentStream := TIdReadFileExclusiveStream.Create(sFile);
+     AResponseInfo.WriteContent;
+     Exit;
+    End;
+  End;
  DWParams           := TDWParams.Create;
- DWParams.Encoding  := GetEncoding(VEncondig);
+ {$IFNDEF FPC}
+  {$if CompilerVersion > 21}
+   DWParams.Encoding  := GetEncoding(TEncodeSelect(VEncondig));
+  {$IFEND}
+ {$ENDIF}
  If ARequestInfo.PostStream <> Nil Then
   Begin
    ARequestInfo.PostStream.Position := 0;
@@ -630,11 +890,11 @@ Begin
      Begin
       If ARequestInfo.Params.Count > 0 Then
        DWParams  := TServerUtils.ParseWebFormsParams (ARequestInfo.Params, ARequestInfo.URI,
-                                                      UrlMethod, GetEncoding(VEncondig))
+                                                      UrlMethod{$IFNDEF FPC}{$if CompilerVersion > 21}, GetEncoding(TEncodeSelect(VEncondig)){$IFEND}{$ENDIF})
       Else
        Begin
         If Copy(Cmd, 1, 3) = 'GET' Then
-         DWParams  := TServerUtils.ParseRESTURL (ARequestInfo.URI, GetEncoding(VEncondig))
+         DWParams  := TServerUtils.ParseRESTURL (ARequestInfo.URI{$IFNDEF FPC}{$if CompilerVersion > 21},GetEncoding(TEncodeSelect(VEncondig)){$IFEND}{$ENDIF})
         Else
          Begin
           Try
@@ -658,7 +918,7 @@ Begin
                Decoder     := newdecoder;
                If Decoder <> Nil Then
                 TIdMessageDecoderMIME(Decoder).MIMEBoundary := Boundary;
-               JSONParam   := TJSONParam.Create(DWParams.Encoding);
+               JSONParam   := TJSONParam.Create{$IFNDEF FPC}{$if CompilerVersion > 21}(DWParams.Encoding){$IFEND}{$ENDIF};
                JSONParam.FromJSON(ms.DataString);
                DWParams.Add(JSONParam);
                FreeAndNil(ms);
@@ -687,20 +947,24 @@ Begin
          End;
        End;
       If Assigned(vServerMethod) Then
-       vTempServerMethods := vServerMethod.Create
+       vTempServerMethods := vServerMethod.Create(Nil)
       Else
        JSONStr := GetPairJSON(-5, 'Server Methods Cannot Assigned');
       Try
        If Assigned(vLastRequest) Then
         Begin
-         {$IFDEF FPC} {$IFDEF WINDOWS}
-         EnterCriticalSection(vCriticalSection);
-         {$ENDIF}{$ENDIF}
+         {$IFDEF FPC}
+          {$IFDEF WINDOWS}
+           EnterCriticalSection(vCriticalSection);
+          {$ENDIF}
+         {$ENDIF}
          vLastRequest(ARequestInfo.UserAgent + #13#10 +
                       ARequestInfo.RawHTTPCommand);
-         {$IFDEF FPC} {$IFDEF WINDOWS}
-         LeaveCriticalSection(vCriticalSection);
-         {$ENDIF}{$ENDIF}
+         {$IFDEF FPC}
+          {$IFDEF WINDOWS}
+           LeaveCriticalSection(vCriticalSection);
+          {$ENDIF}
+         {$ENDIF}
         End;
        If Assigned(vServerMethod) Then
         Begin
@@ -720,15 +984,46 @@ Begin
           End;
          If vTempServerMethods <> Nil Then
           Begin
-           If UpperCase(Copy (Cmd, 1, 3)) = 'GET' Then
-            JSONStr := TServerMethods(vTempServerMethods).ReplyEvent(seGET, UrlMethod, DWParams);
-           If UpperCase(Copy (Cmd, 1, 4)) = 'POST' Then
-            JSONStr := TServerMethods(vTempServerMethods).ReplyEvent(sePOST, UrlMethod, DWParams);
+           If Not ServiceMethods(TComponent(vTempServerMethods), AContext, UrlMethod, DWParams, JSONStr) Then
+            Begin
+             If UpperCase(Copy (Cmd, 1, 3)) = 'GET' Then
+              Begin
+               If vServerBaseMethod = TServerMethods Then
+                Begin
+                 If Assigned(TServerMethods(vTempServerMethods).ReplyEvent) then
+                  TServerMethods(vTempServerMethods).ReplyEvent(seGET, UrlMethod, DWParams, JSONStr);
+                End
+               Else If vServerBaseMethod = TServerMethodDatamodule Then
+                Begin
+                 If Assigned(TServerMethodDatamodule(vTempServerMethods).OnReplyEvent) then
+                  TServerMethodDatamodule(vTempServerMethods).OnReplyEvent(seGET, UrlMethod, DWParams, JSONStr);
+                End;
+              End
+             Else If UpperCase(Copy (Cmd, 1, 4)) = 'POST' Then
+              Begin
+               If vServerBaseMethod = TServerMethods Then
+                Begin
+                 If Assigned(TServerMethods(vTempServerMethods).ReplyEvent) then
+                  TServerMethods(vTempServerMethods).ReplyEvent(sePOST, UrlMethod, DWParams, JSONStr);
+                End
+               Else If vServerBaseMethod = TServerMethodDatamodule Then
+                Begin
+                 If Assigned(TServerMethodDatamodule(vTempServerMethods).OnReplyEvent) then
+                  TServerMethodDatamodule(vTempServerMethods).OnReplyEvent(sePOST, UrlMethod, DWParams, JSONStr);
+                End;
+              End;
+            End;
           End;
         End;
        Try
         vReplyString                         := Format(TValueDisp, [GetParamsReturn(DWParams), JSONStr]);
-        mb                                   := TStringStream.Create(vReplyString{$IFNDEF FPC}, GetEncoding(VEncondig){$ENDIF});
+        If vDataCompress Then
+         Begin
+          ZCompressStr(vReplyString, vReplyStringResult);
+          mb                                 := TStringStream.Create(vReplyStringResult);
+         End
+        Else
+         mb                                  := TStringStream.Create(vReplyString{$IFNDEF FPC}{$if CompilerVersion > 21}, GetEncoding(TEncodeSelect(VEncondig)){$IFEND}{$ENDIF});
         mb.Position                          := 0;
         AResponseInfo.ContentStream          := mb;
         AResponseInfo.ContentStream.Position := 0;
@@ -744,13 +1039,17 @@ Begin
        End;
        If Assigned(vLastResponse) Then
         Begin
-         {$IFDEF FPC} {$IFDEF WINDOWS}
-         EnterCriticalSection(vCriticalSection);
-         {$ENDIF}{$ENDIF}
+         {$IFDEF FPC}
+          {$IFDEF WINDOWS}
+           EnterCriticalSection(vCriticalSection);
+          {$ENDIF}
+         {$ENDIF}
          vLastResponse(vReplyString);
-         {$IFDEF FPC} {$IFDEF WINDOWS}
-         LeaveCriticalSection(vCriticalSection);
-         {$ENDIF}{$ENDIF}
+         {$IFDEF FPC}
+          {$IFDEF WINDOWS}
+           LeaveCriticalSection(vCriticalSection);
+          {$ENDIF}
+         {$ENDIF}
         End;
       Finally
        If Assigned(vServerMethod) Then
@@ -787,31 +1086,35 @@ Begin
  If (UpperCase(Copy (Cmd, 1, 3)) = 'PUT')    OR
     (UpperCase(Copy (Cmd, 1, 6)) = 'DELETE') Then
   Begin
-   DWParams := TServerUtils.ParseRESTURL (ARequestInfo.URI, GetEncoding(VEncondig));
+   DWParams := TServerUtils.ParseRESTURL (ARequestInfo.URI{$IFNDEF FPC}{$if CompilerVersion > 21}, GetEncoding(TEncodeSelect(VEncondig)){$IFEND}{$ENDIF});
    If Assigned(vServerMethod) Then
-    vTempServerMethods := vServerMethod.Create
+    vTempServerMethods := vServerMethod.Create(Nil)
    Else
     JSONStr := GetPairJSON(-5, 'Server Methods Cannot Assigned');
    Try
     If Assigned(vLastRequest) Then
      Begin
-      {$IFDEF FPC} {$IFDEF WINDOWS}
-      EnterCriticalSection(vCriticalSection);
-      {$ENDIF}{$ENDIF}
+      {$IFDEF FPC}
+       {$IFDEF WINDOWS}
+        EnterCriticalSection(vCriticalSection);
+       {$ENDIF}
+      {$ENDIF}
       vLastRequest(ARequestInfo.UserAgent + #13#10 +
                    ARequestInfo.RawHTTPCommand);
-      {$IFDEF FPC} {$IFDEF WINDOWS}
-      LeaveCriticalSection(vCriticalSection);
-      {$ENDIF}{$ENDIF}
+      {$IFDEF FPC}
+       {$IFDEF WINDOWS}
+        LeaveCriticalSection(vCriticalSection);
+       {$ENDIF}
+      {$ENDIF}
      End;
     If Assigned(vServerMethod) Then
      Begin
       If vTempServerMethods <> Nil Then
        Begin
         If UpperCase(Copy (Cmd, 1, 3)) = 'PUT' Then
-         JSONStr := TServerMethods(vTempServerMethods).ReplyEvent(sePUT, '', DWParams);
+         TServerMethods(vTempServerMethods).ReplyEvent(sePUT, '', DWParams, JSONStr);
         If UpperCase(Copy (Cmd, 1, 6)) = 'DELETE' Then
-         JSONStr := TServerMethods(vTempServerMethods).ReplyEvent(seDELETE, '', DWParams);
+         TServerMethods(vTempServerMethods).ReplyEvent(seDELETE, '', DWParams, JSONStr);
        End;
      End;
     Try
@@ -825,13 +1128,17 @@ Begin
     End;
     If Assigned(vLastResponse) Then
      Begin
-      {$IFDEF FPC} {$IFDEF WINDOWS}
-      EnterCriticalSection(vCriticalSection);
-      {$ENDIF}{$ENDIF}
-      vLastResponse(DecodeStrings(JSONStr{$IFNDEF FPC}, GetEncoding(VEncondig){$ENDIF}));
-      {$IFDEF FPC} {$IFDEF WINDOWS}
-      LeaveCriticalSection(vCriticalSection);
-      {$ENDIF}{$ENDIF}
+      {$IFDEF FPC}
+       {$IFDEF WINDOWS}
+        EnterCriticalSection(vCriticalSection);
+       {$ENDIF}
+      {$ENDIF}
+       vLastResponse(DecodeStrings(JSONStr{$IFNDEF FPC}{$if CompilerVersion > 21}, GetEncoding(TEncodeSelect(VEncondig)){$IFEND}{$ENDIF}));
+      {$IFDEF FPC}
+       {$IFDEF WINDOWS}
+        LeaveCriticalSection(vCriticalSection);
+       {$ENDIF}
+      {$ENDIF}
      End;
     AResponseInfo.WriteContent;
    Finally
@@ -862,9 +1169,12 @@ Begin
  vServerContext                  := 'restdataware';
  VEncondig                       := esASCII;
  vServicePort                    := 8082;
- {$IFDEF FPC} {$IFDEF WINDOWS}
- InitializeCriticalSection(vCriticalSection);
- {$ENDIF}{$ENDIF}
+ vDataCompress                   := True;
+ {$IFDEF FPC}
+  {$IFDEF WINDOWS}
+   InitializeCriticalSection(vCriticalSection);
+  {$ENDIF}
+ {$ENDIF}
 End;
 
 Destructor TRESTServicePooler.Destroy;
@@ -874,7 +1184,11 @@ Begin
  HTTPServer.Free;
  vServerParams.Free;
  lHandler.Free;
- {$IFDEF FPC}{$IFDEF WINDOWS}DeleteCriticalSection(vCriticalSection);{$ENDIF}{$ENDIF}
+ {$IFDEF FPC}
+  {$IFDEF WINDOWS}
+   DeleteCriticalSection(vCriticalSection);
+  {$ENDIF}
+ {$ENDIF}
  Inherited;
 End;
 
@@ -924,6 +1238,22 @@ Begin
  vActive := HTTPServer.Active;
 End;
 
+
+Procedure TRESTServicePooler.SetServerMethod(Value : TComponentClass);
+Begin
+ If (Value.ClassParent      = TServerMethods) Or
+    (Value                  = TServerMethods) Then
+  Begin
+   vServerMethod     := Value;
+   vServerBaseMethod := TServerMethods;
+  End
+ Else If (Value.ClassParent = TServerMethodDatamodule) Or
+         (Value             = TServerMethodDatamodule) Then
+  Begin
+   vServerMethod := Value;
+   vServerBaseMethod := TServerMethodDatamodule;
+  End;
+End;
 
 {TThread_Request}
 constructor TThread_Request.Create;
@@ -1005,21 +1335,21 @@ VAR SResult ,
          bJsonValue := JsonParser.Output.Objects[A];
          If GetObjectName(bJsonValue[0].Value.Value) <> toParam Then
           Break;
-         JSONParam := TJSONParam.Create(GetEncoding(vRSCharset));
+         JSONParam := TJSONParam.Create{$IFNDEF FPC}{$if CompilerVersion > 21}(GetEncoding(TEncodeSelect(vRSCharset))){$IFEND}{$ENDIF};
          Try
           JSONParam.ParamName       := bJsonValue[4].Key;
           JSONParam.ObjectValue     := GetValueType(bJsonValue[3].Value.Value);
           JSONParam.ObjectDirection := GetDirectionName(bJsonValue[1].Value.Value);
           JSONParam.Encoded         := GetBooleanFromString(bJsonValue[2].Value.Value);
           If JSONParam.Encoded Then
-           vValue := DecodeStrings(bJsonValue[4].Value.Value{$IFNDEF FPC}, GetEncoding(vRSCharset){$ENDIF})
+           vValue := DecodeStrings(bJsonValue[4].Value.Value{$IFNDEF FPC}{$if CompilerVersion > 21}, GetEncoding(TEncodeSelect(vRSCharset)){$IFEND}{$ENDIF})
           Else
            vValue := bJsonValue[4].Value.Value;
           JSONParam.SetValue(vValue);
           {TODO CRISTIANO BAROBSA}  //parametro criandos no servidor
           If ParamsData.ItemsString[JSONParam.ParamName] = Nil Then
           begin
-            JSONParamNew           := TJSONParam.Create(ParamsData.Encoding);
+            JSONParamNew           := TJSONParam.Create{$IFNDEF FPC}{$if CompilerVersion > 21}(ParamsData.Encoding){$IFEND}{$ENDIF};
             JSONParamNew.ParamName := JSONParam.ParamName;
             JSONParamNew.SetValue(JSONParam.Value, JSONParam.Encoded);
             ParamsData.Add(JSONParamNew);
@@ -1036,7 +1366,7 @@ VAR SResult ,
   Finally
    If vTempValue <> '' Then
     Begin
-//     ResultJSON := DecodeStrings(vTempValue{$IFNDEF FPC}, GetEncoding(vRSCharset){$ENDIF});
+//     ResultJSON := DecodeStrings(vTempValue{$IFNDEF FPC}, GetEncoding(uDWConsts.TEncodeSelect(vRSCharset)){$IFEND});
      ResultJSON := vTempValue;
     End;
   End;
@@ -1081,11 +1411,17 @@ ss            := Nil;
      HttpRequest.Request.ContentType := 'application/json';
      SResult := HttpRequest.Get(EventData);
      If Assigned(FCallBack) Then
-      {$IFDEF FPC}FCallBack(SResult, Params);{$ELSE}
-      Synchronize(CurrentThread, Procedure ()
+      {$IFDEF FPC}
+       FCallBack(SResult, Params);
+      {$ELSE}
+       {$if CompilerVersion > 21}
+        Synchronize(CurrentThread, Procedure ()
                                  Begin
                                   FCallBack(SResult,Params)
                                  End);
+       {$ELSE}
+        FCallBack(SResult, Params);
+       {$IFEND}
       {$ENDIF}
      Terminate;
     End;
@@ -1120,11 +1456,17 @@ ss            := Nil;
        Try
         SetData(StringStream.DataString, Params, SResult);
         If Assigned(FCallBack) Then
-         {$IFDEF FPC}FCallBack(SResult, Params);{$ELSE}
-         Synchronize(CurrentThread, Procedure ()
-                                    Begin
-                                     FCallBack(SResult,Params)
-                                    End);
+         {$IFDEF FPC}
+          FCallBack(SResult, Params);
+         {$ELSE}
+          {$if CompilerVersion > 21}
+           Synchronize(CurrentThread, Procedure
+                                      Begin
+                                       FCallBack(SResult,Params)
+                                      End);
+          {$ELSE}
+           FCallBack(SResult, Params);
+          {$IFEND}
          {$ENDIF}
         Terminate;
        Finally
@@ -1141,11 +1483,17 @@ ss            := Nil;
        Try
         SetData(StringStream.DataString, Params, SResult);
         If Assigned(FCallBack) Then
-         {$IFDEF FPC}FCallBack(SResult, Params);{$ELSE}
-         Synchronize(CurrentThread, Procedure ()
-                                    Begin
-                                     FCallBack(SResult,Params)
-                                    End);
+         {$IFDEF FPC}
+          FCallBack(SResult, Params);
+         {$ELSE}
+          {$if CompilerVersion > 21}
+           Synchronize(CurrentThread, Procedure
+                                      Begin
+                                       FCallBack(SResult,Params)
+                                      End);
+          {$ELSE}
+           FCallBack(SResult, Params);
+          {$IFEND}
          {$ENDIF}
         Terminate;
        Finally
@@ -1159,24 +1507,32 @@ ss            := Nil;
          HttpRequest.Delete(vURL);
          SResult := GetPairJSON('OK', 'DELETE COMMAND OK');
          If Assigned(FCallBack) Then
-         {$IFDEF FPC}FCallBack(SResult, Params);{$ELSE}
-         Synchronize(CurrentThread, Procedure ()
-                                    Begin
-                                     FCallBack(SResult,Params)
-                                    End);
-         {$ENDIF}
+          {$IFDEF FPC}
+           FCallBack(SResult, Params);
+          {$ELSE}
+           {$if CompilerVersion > 21}
+            Synchronize(CurrentThread, Procedure
+                                       Begin
+                                        FCallBack(SResult,Params)
+                                       End);
+           {$IFEND}
+          {$ENDIF}
          Terminate;
        Except
         On e:exception Do
          Begin
           SResult := GetPairJSON('NOK', e.Message);
           If Assigned(FCallBack) Then
-          {$IFDEF FPC}FCallBack(SResult, Params);{$ELSE}
-          Synchronize(CurrentThread, Procedure ()
-                                     Begin
-                                      FCallBack(SResult,Params)
-                                     End);
-          {$ENDIF}
+           {$IFDEF FPC}
+            FCallBack(SResult, Params);
+           {$ELSE}
+            {$if CompilerVersion > 21}
+             Synchronize(CurrentThread, Procedure
+                                        Begin
+                                         FCallBack(SResult,Params);
+                                        End);
+            {$IFEND}
+           {$ENDIF}
           Terminate;
          End;
        End;
@@ -1195,3 +1551,4 @@ ss            := Nil;
 end;
 
 end.
+

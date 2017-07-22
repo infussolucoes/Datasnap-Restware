@@ -5,7 +5,11 @@ interface
 Uses {$IFDEF FPC}
      SysUtils, Classes;
      {$ELSE}
+     {$IF CompilerVersion < 21}
+     SysUtils, Classes;
+     {$ELSE}
      System.SysUtils, System.Classes;
+     {$IFEND}
      {$ENDIF}
 
 type
@@ -316,8 +320,9 @@ function ResultJsonValue(var JsonParser: TJsonParser): TJsonValue;
 var
   N: Integer;
 begin
-  Result.Kind := JVKUnknown;
+  Result.Kind  := JVKUnknown;
   Result.Index := -1;
+  N            := -1;
   White(JsonParser);
   case JsonParser.Ch of
     '-', '0'..'9':
