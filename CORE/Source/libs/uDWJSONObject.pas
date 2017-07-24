@@ -3,7 +3,7 @@ unit uDWJSONObject;
 interface
 
 Uses {$IFDEF FPC}
-      SysUtils, Classes, uDWJSONTools, IdGlobal, DB, uDWJSONParser, uDWConsts, uDWConstsData, JvMemoryDataset;
+      SysUtils, Classes, uDWJSONTools, IdGlobal, DB, uDWJSONParser, uDWConsts, uDWConstsData, memds;
      {$ELSE}
       {$if CompilerVersion > 21} // Delphi 2010 pra cima
        System.SysUtils, System.Classes, uDWJSONTools, uDWConsts, uDWJSONParser, uDWConstsData,
@@ -598,10 +598,12 @@ var
  JsonParser  : TJsonParser;
  bJsonValue  : TJsonObject;
  JsonArray   : TJsonArray;
- J, I        : Integer;
+ A, J, I     : Integer;
  FieldDef    : TFieldDef;
  Field       : TField;
+ vFindFlag   : Boolean;
  vBlobStream : TStringStream;
+ ListFields  : TStringList;
  Procedure SetValueA(Field : TField; Value : String);
  Begin
   Case Field.DataType Of
@@ -648,8 +650,22 @@ var
     End;
   End;
  End;
+ Function FieldIndex(FieldName : String) : Integer;
+ Var
+  I : Integer;
+ Begin
+  For I := 0 To ListFields.Count -1 Do
+   Begin
+    If Uppercase(ListFields[I]) = Uppercase(FieldName) Then
+     Begin
+      Result := I;
+      Break;
+     End;
+   End;
+ End;
 begin
  ClearJsonParser(JsonParser);
+ ListFields  := TStringList.Create;
  Try
   ParseJson(JsonParser, JSONValue);
   If Length(JsonParser.Output.Objects) > 0 Then
@@ -664,37 +680,53 @@ begin
     DestDS.DisableControls;
     If DestDS.Active Then
      DestDS.Close;
-    DestDS.FieldDefs.Clear;
-    {$IFDEF FPC}
-    DestDS.Fields.Clear;
+    {$IFNDEF FPC}
+     DestDS.FieldDefs.Clear;
     {$ENDIF}
-    For J := 1 To Length(JsonParser.Output.Objects) -1 Do
+    If DestDS.FieldDefs.Count = 0 Then
      Begin
-      bJsonValue         := JsonParser.Output.Objects[J];
-      FieldDef           := DestDS.FieldDefs.AddFieldDef;
-      FieldDef.Name      := bJsonValue[0].Value.Value;
-      FieldDef.DataType  := GetFieldType(bJsonValue[1].Value.Value);
-      FieldDef.Required  := UpperCase(bJsonValue[3].Value.Value) = 'S';
-      If Not(FieldDef.DataType In [ftSmallInt, ftInteger, ftFloat, ftCurrency, ftBCD, ftFMTBcd]) Then
+      For J := 1 To Length(JsonParser.Output.Objects) -1 Do
        Begin
-        FieldDef.Size      := StrToInt(bJsonValue[4].Value.Value);
-        FieldDef.Precision := StrToInt(bJsonValue[5].Value.Value);
+        bJsonValue         := JsonParser.Output.Objects[J];
+        If Trim(bJsonValue[0].Value.Value) <> '' Then
+         Begin
+          If TRESTDWClientSQL(DestDS).FieldDefExist(bJsonValue[0].Value.Value) = Nil Then
+           Begin
+            FieldDef           := TFieldDef.Create(DestDS.FieldDefs,
+                                                   bJsonValue[0].Value.Value,
+                                                   GetFieldType(bJsonValue[1].Value.Value),
+                                                   StrToInt    (bJsonValue[4].Value.Value),
+                                                   UpperCase   (bJsonValue[3].Value.Value) = 'S',
+                                                   DestDS.FieldDefs.Count);
+            If Not(FieldDef.DataType In [ftSmallInt, ftInteger, ftFloat, ftCurrency, ftBCD, ftFMTBcd]) Then
+             Begin
+              FieldDef.Size      := StrToInt(bJsonValue[4].Value.Value);
+              FieldDef.Precision := StrToInt(bJsonValue[5].Value.Value);
+             End;
+           End;
+         End;
        End;
      End;
     Try
      {$IFNDEF FPC}
       If DestDS Is TClientDataset Then
        TClientDataset(DestDS).CreateDataSet
-      Else If DestDS Is TJvMemoryData Then
+      Else If DestDS Is TRESTDWClientSQL Then
        Begin
         TRESTDWClientSQL(DestDS).Inactive := True;
+        DestDS.Open;
         TRESTDWClientSQL(DestDS).Active   := True;
         TRESTDWClientSQL(DestDS).Inactive := False;
        End
       Else
        DestDS.Open;
      {$ELSE}
+      TRESTDWClientSQL(DestDS).Inactive := True;
+      If DestDS is TMemDataset Then
+       TMemDataset(DestDS).CreateTable;
       DestDS.Open;
+      TRESTDWClientSQL(DestDS).Active   := True;
+      TRESTDWClientSQL(DestDS).Inactive := False;
      {$ENDIF}
     Except
     End;
@@ -704,17 +736,42 @@ begin
       bJsonValue         := JsonParser.Output.Objects[J];
       If UpperCase(bJsonValue[2].Value.Value) = 'S' Then
        Begin
-        Field := TJvMemoryData(DestDS).FindField(bJsonValue[0].Value.Value);
+        {$IFDEF FPC}
+         Field := TMemDataset(DestDS).FindField(bJsonValue[0].Value.Value);
+        {$ELSE}
+         Field := TJvMemoryData(DestDS).FindField(bJsonValue[0].Value.Value);
+        {$ENDIF}
         If Field <> Nil Then
          Field.ProviderFlags := [pfInUpdate, pfInWhere, pfInKey];
        End;
+     End;
+    For A := 0 To DestDS.FieldDefs.Count -1 Do
+     Begin
+      vFindFlag := False;
+      For J := 1 To Length(JsonParser.Output.Objects) -1 Do
+       Begin
+        bJsonValue         := JsonParser.Output.Objects[J];
+        If Trim(bJsonValue[0].Value.Value) <> '' Then
+         Begin
+          vFindFlag := UpperCase(Trim(bJsonValue[0].Value.Value)) = UpperCase(DestDS.FieldDefs[A].Name);
+          If vFindFlag Then
+           Begin
+            ListFields.Add(IntToStr(J -1));
+            Break;
+           End;
+         End;
+       End;
+      If Not vFindFlag Then
+       ListFields.Add('-1');
      End;
     For J := 5 To Length(JsonParser.Output.Arrays) -1 Do
      Begin
       JsonArray  := JsonParser.Output.Arrays[J];
       DestDS.Append;
-      For I := 0 To Length(JsonArray) -1 Do
+      For I := 0 To DestDS.Fields.Count -1 Do
        Begin
+        If StrToInt(ListFields[I]) = -1 Then
+         Continue;
         If DestDS.Fields[I].DataType In [ftMemo, ftGraphic, ftFmtMemo,
                                          ftParadoxOle,      ftDBaseOle,
                                          ftTypedBinary,     ftCursor,
@@ -725,9 +782,9 @@ begin
                                          ,ftParams,         ftStream{$IFEND}{$ENDIF}]  Then
          Begin
           If vEncoded Then
-           vBlobStream := TStringStream.Create(DecodeStrings(JsonArray[I].Value{$IFNDEF FPC}{$if CompilerVersion > 21}, vEncoding{$IFEND}{$ENDIF}))
+           vBlobStream := TStringStream.Create(DecodeStrings(JsonArray[StrToInt(ListFields[I])].Value{$IFNDEF FPC}{$if CompilerVersion > 21}, vEncoding{$IFEND}{$ENDIF}))
           Else
-           vBlobStream := TStringStream.Create(JsonArray[I].Value);
+           vBlobStream := TStringStream.Create(JsonArray[StrToInt(ListFields[I])].Value);
           Try
            vBlobStream.Position := 0;
            DestDS.CreateBlobStream(DestDS.Fields[I], bmWrite);
@@ -742,21 +799,21 @@ begin
          End
         Else
          Begin
-          If JsonArray[I].Value <> '' Then
+          If JsonArray[StrToInt(ListFields[I])].Value <> '' Then
            Begin
             If DestDS.Fields[I].DataType in [ftString, ftWideString, ftFixedChar] Then
              Begin
               If vEncoded Then
-               DestDS.Fields[I].AsString := DecodeStrings(JsonArray[I].Value{$IFNDEF FPC}{$if CompilerVersion > 21}, vEncoding{$IFEND}{$ENDIF})
+               DestDS.Fields[I].AsString := DecodeStrings(JsonArray[StrToInt(ListFields[I])].Value{$IFNDEF FPC}{$if CompilerVersion > 21}, vEncoding{$IFEND}{$ENDIF})
               Else
-               DestDS.Fields[I].AsString := JsonArray[I].Value;
+               DestDS.Fields[I].AsString := JsonArray[StrToInt(ListFields[I])].Value;
              End
             Else
              Begin
               {$IFNDEF FPC}
                DestDS.Fields[I].Value := JsonArray[I].Value;
               {$ELSE}
-               SetValueA(DestDS.Fields[I], JsonArray[I].Value);
+               SetValueA(DestDS.Fields[I], JsonArray[StrToInt(ListFields[I])].Value);
               {$ENDIF}
              End;
            End;
@@ -771,6 +828,7 @@ begin
     Raise Exception.Create('Invalid JSON Data...');
    End;
  Finally
+  ListFields.Free;
   If DestDS.Active Then
    DestDS.First;
   DestDS.EnableControls;

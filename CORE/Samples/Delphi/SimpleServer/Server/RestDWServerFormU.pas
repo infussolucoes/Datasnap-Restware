@@ -119,7 +119,7 @@ implementation
 {$ENDIF}
 
 uses
-  Winapi.ShellApi;
+  Winapi.ShellApi, uDmService;
 
 Function TRestDWForm.GetHandleOnTaskBar : THandle;
 Begin
@@ -219,10 +219,6 @@ Begin
 End;
 
 Procedure TRestDWForm.ShowBalloonTips(IconMessage : Integer = 0; MessageValue : String = '');
-Var
- TipInfo,
- TipTitle : String;
- HintIcon : TBalloonHintIcon;
 Begin
  Case IconMessage Of
   0 : ctiPrincipal.BalloonFlags := bfInfo;
@@ -314,21 +310,12 @@ Begin
  // portas diferentes os arquivos não irão conflitar
  FCfgName := StringReplace(ExtractFileName(ParamStr(0) ), '.exe' , '' , [rfReplaceAll]);
  FCfgName := ExtractFilePath(ParamSTR(0)) + 'Config_' + FCfgName + '.ini' ;
- RESTServicePooler1.ServerMethodClass := TServerMethods1;
+ RESTServicePooler1.ServerMethodClass := TServerMethodDM;
  PageControl1.ActivePage              := tsConfigs;
 End;
 
 procedure TRestDWForm.FormShow(Sender: TObject);
 Var
- porta_fb,
- porta_dw,
- servidor,
- database,
- pasta,
- usuarioDW,
- senhaDW,
- usuarioBD,
- senhaBD           : String;
  ini               : TIniFile;
  vTag, i           : Integer;
  aNetInterfaceList : tNetworkInterfaceList;

@@ -16,6 +16,8 @@ Uses
 
 implementation
 
+{%CLASSGROUP 'System.Classes.TPersistent'}
+
 {$R *.dfm}
 
 end.

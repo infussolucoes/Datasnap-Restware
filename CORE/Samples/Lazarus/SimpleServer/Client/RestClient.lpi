@@ -6,7 +6,7 @@
     <General>
       <SessionStorage Value="InProjectDir"/>
       <MainUnit Value="0"/>
-      <Title Value="ServerREST"/>
+      <Title Value="RestClient"/>
       <ResourceType Value="res"/>
       <UseXPManifest Value="True"/>
       <Icon Value="0"/>
@@ -28,35 +28,39 @@
         <FormatVersion Value="1"/>
       </local>
     </RunParams>
-    <RequiredPackages Count="4">
+    <RequiredPackages Count="5">
       <Item1>
-        <PackageName Value="SQLDBLaz"/>
+        <PackageName Value="RestEasyObjectsCORE"/>
       </Item1>
       <Item2>
-        <PackageName Value="resteasyobjectscore"/>
+        <PackageName Value="indylaz"/>
       </Item2>
       <Item3>
-        <PackageName Value="indylaz"/>
+        <PackageName Value="MemDSLaz"/>
       </Item3>
       <Item4>
-        <PackageName Value="LCL"/>
+        <PackageName Value="FCL"/>
       </Item4>
+      <Item5>
+        <PackageName Value="LCL"/>
+      </Item5>
     </RequiredPackages>
     <Units Count="3">
       <Unit0>
-        <Filename Value="ServerREST.lpr"/>
+        <Filename Value="RestClient.lpr"/>
         <IsPartOfProject Value="True"/>
       </Unit0>
       <Unit1>
         <Filename Value="formMain.pas"/>
         <IsPartOfProject Value="True"/>
-        <ComponentName Value="frmMain"/>
+        <ComponentName Value="Form2"/>
         <HasResources Value="True"/>
         <ResourceBaseClass Value="Form"/>
       </Unit1>
       <Unit2>
-        <Filename Value="ServerMethodsUnit1.pas"/>
+        <Filename Value="urestrequest.pas"/>
         <IsPartOfProject Value="True"/>
+        <UnitName Value="uRESTRequest"/>
       </Unit2>
     </Units>
   </ProjectOptions>
@@ -64,7 +68,7 @@
     <Version Value="11"/>
     <PathDelim Value="\"/>
     <Target>
-      <Filename Value="ServerREST"/>
+      <Filename Value="RestClient"/>
     </Target>
     <SearchPaths>
       <IncludeFiles Value="$(ProjOutDir)"/>

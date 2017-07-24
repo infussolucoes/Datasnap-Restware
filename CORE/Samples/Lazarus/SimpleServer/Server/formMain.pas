@@ -19,7 +19,9 @@ Type
     ButtonStart: TButton;
     ButtonStop: TButton;
     cbAdaptadores: TComboBox;
+    cbEncode1: TCheckBox;
     cbPoolerState: TCheckBox;
+    cbEncode: TCheckBox;
     ctiPrincipal: TTrayIcon;
     eCertFile: TEdit;
     edBD: TEdit;
@@ -125,6 +127,7 @@ procedure TfrmMain.StartServer;
 begin
  If Not RESTServicePooler1.Active Then
   Begin
+   RESTServicePooler1.DataCompression       := cbEncode1.Checked;
    RESTServicePooler1.ServicePort           := StrToInt(edPortaDW.Text);
    RESTServicePooler1.SSLPrivateKeyFile     := ePrivKeyFile.Text;
    RESTServicePooler1.SSLPrivateKeyPassword := ePrivKeyPass.Text;
@@ -231,9 +234,9 @@ end;
 
 procedure TfrmMain.FormCreate(Sender: TObject);
 begin
-   // define o nome do .ini de acordo c o EXE
- // dessa forma se quiser testar várias instâncias do servidor em
- // portas diferentes os arquivos não irão conflitar
+ // Define o nome do .ini de acordo c o EXE
+ // Dessa forma se quiser testar várias instâncias do servidor em
+ // Portas diferentes os arquivos não irão conflitar
  FCfgName := StringReplace(ExtractFileName(ParamStr(0) ), '.exe' , '' , [rfReplaceAll]);
  FCfgName := ExtractFilePath(ParamSTR(0)) + 'Config_' + FCfgName + '.ini' ;
  RESTServicePooler1.ServerMethodClass := TServerMethods1;

@@ -1079,40 +1079,108 @@ object Form2: TForm2
   end
   object DataSource1: TDataSource
     AutoEdit = False
-    DataSet = MemDataset1
-    Left = 128
-    Top = 88
+    DataSet = RESTDWClientSQL1
+    Left = 296
+    Top = 80
   end
-  object RESTClientPooler1: TRESTClientPooler
-    DataCompression = True
-    Encoding = esASCII
-    Host = 'localhost'
-    UserName = 'testserver'
-    Password = 'testserver'
-    ProxyOptions.BasicAuthentication = False
-    ProxyOptions.ProxyPort = 0
-    RequestTimeOut = 60000
-    ThreadRequest = False
-    Left = 77
-    Top = 41
-  end
-  object MemDataset1: TFDMemTable
+  object RESTDWClientSQL1: TRESTDWClientSQL
     FieldDefs = <
       item
-        Name = 'Alunos'
+        Name = 'EMP_NO'
+        Attributes = [faRequired]
+        DataType = ftSmallint
+      end
+      item
+        Name = 'FIRST_NAME'
+        Attributes = [faRequired]
         DataType = ftString
-        Size = 100
+        Size = 15
+      end
+      item
+        Name = 'LAST_NAME'
+        Attributes = [faRequired]
+        DataType = ftString
+        Size = 20
+      end
+      item
+        Name = 'PHONE_EXT'
+        DataType = ftString
+        Size = 4
+      end
+      item
+        Name = 'HIRE_DATE'
+        Attributes = [faRequired]
+        DataType = ftTimeStamp
+      end
+      item
+        Name = 'DEPT_NO'
+        Attributes = [faRequired]
+        DataType = ftString
+        Size = 3
+      end
+      item
+        Name = 'JOB_CODE'
+        Attributes = [faRequired]
+        DataType = ftString
+        Size = 5
+      end
+      item
+        Name = 'JOB_GRADE'
+        Attributes = [faRequired]
+        DataType = ftSmallint
+      end
+      item
+        Name = 'JOB_COUNTRY'
+        Attributes = [faRequired]
+        DataType = ftString
+        Size = 15
+      end
+      item
+        Name = 'SALARY'
+        Attributes = [faRequired]
+        DataType = ftFloat
+      end
+      item
+        Name = 'FULL_NAME'
+        DataType = ftString
+        Size = 37
       end>
-    IndexDefs = <>
-    FetchOptions.AssignedValues = [evMode]
-    FetchOptions.Mode = fmAll
-    ResourceOptions.AssignedValues = [rvSilentMode]
-    ResourceOptions.SilentMode = True
-    UpdateOptions.AssignedValues = [uvCheckRequired, uvAutoCommitUpdates]
-    UpdateOptions.CheckRequired = False
-    UpdateOptions.AutoCommitUpdates = True
-    StoreDefs = True
-    Left = 80
-    Top = 88
+    MasterCascadeDelete = True
+    Inactive = False
+    DataCache = False
+    Params = <
+      item
+        DataType = ftString
+        Name = 'emp_no'
+        ParamType = ptUnknown
+      end>
+    DataBase = RESTDWDataBase1
+    SQL.Strings = (
+      'select * from employee'
+      'where emp_no = :emp_no')
+    CacheUpdateRecords = True
+    Left = 296
+    Top = 32
+  end
+  object RESTDWDataBase1: TRESTDWDataBase
+    Active = True
+    Compression = True
+    MyIP = '127.0.0.1'
+    Login = 'testserver'
+    Password = 'testserver'
+    Proxy = False
+    ProxyOptions.Port = 8888
+    PoolerService = '127.0.0.1'
+    PoolerPort = 8082
+    PoolerName = 'TServerMethodDM.RESTDWPoolerDB1'
+    StateConnection.AutoCheck = False
+    StateConnection.InTime = 1000
+    RequestTimeOut = 10000
+    Encoding = esASCII
+    StrsTrim = False
+    StrsEmpty2Null = False
+    StrsTrim2Len = True
+    Left = 232
+    Top = 32
   end
 end

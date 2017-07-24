@@ -1,7 +1,7 @@
 object Form2: TForm2
-  Left = 237
+  Left = 398
   Height = 430
-  Top = 129
+  Top = 123
   Width = 512
   Caption = 'RESTClientPooler Test'
   ClientHeight = 430
@@ -1061,25 +1061,115 @@ object Form2: TForm2
     ParentFont = False
     TabOrder = 6
   end
+  object CheckBox1: TCheckBox
+    Left = 232
+    Height = 19
+    Top = 93
+    Width = 93
+    Caption = 'Compression'
+    Checked = True
+    Font.Color = clWindowText
+    Font.Height = -11
+    Font.Name = 'Tahoma'
+    Font.Style = [fsBold]
+    ParentFont = False
+    State = cbChecked
+    TabOrder = 7
+  end
   object DataSource1: TDataSource
-    DataSet = MemDataset1
-    left = 176
-    top = 273
+    AutoEdit = False
+    DataSet = RESTDWClientSQL1
+    left = 160
+    top = 328
   end
-  object MemDataset1: TMemDataset
-    FieldDefs = <>
-    left = 312
-    top = 265
-  end
-  object RESTClientPooler1: TRESTClientPooler
-    Encoding = esASCII
-    Host = 'localhost'
-    UserName = 'testserver'
+  object RESTDWDataBase1: TRESTDWDataBase
+    Active = True
+    Compression = True
+    MyIP = '127.0.0.1'
+    Login = 'testserver'
     Password = 'testserver'
-    ProxyOptions.BasicAuthentication = False
-    ProxyOptions.ProxyPort = 0
+    Proxy = False
+    ProxyOptions.Port = 8888
+    PoolerService = '127.0.0.1'
+    PoolerPort = 8082
+    PoolerName = 'TServerMethodDM.RESTDWPoolerDB1'
+    StateConnection.AutoCheck = False
+    StateConnection.InTime = 1000
     RequestTimeOut = 10000
-    left = 256
-    top = 72
+    Encoding = esASCII
+    StrsTrim = False
+    StrsEmpty2Null = False
+    StrsTrim2Len = True
+    left = 344
+    top = 280
+  end
+  object RESTDWClientSQL1: TRESTDWClientSQL
+    Active = False
+    FieldDefs = <    
+      item
+        Name = 'EMP_NO'
+        DataType = ftSmallint
+        Precision = -1
+      end    
+      item
+        Name = 'FIRST_NAME'
+        DataType = ftString
+        Size = 15
+      end    
+      item
+        Name = 'LAST_NAME'
+        DataType = ftString
+        Size = 20
+      end    
+      item
+        Name = 'PHONE_EXT'
+        DataType = ftString
+        Size = 4
+      end    
+      item
+        Name = 'HIRE_DATE'
+        DataType = ftDateTime
+      end    
+      item
+        Name = 'DEPT_NO'
+        DataType = ftString
+        Size = 3
+      end    
+      item
+        Name = 'JOB_CODE'
+        DataType = ftString
+        Size = 5
+      end    
+      item
+        Name = 'JOB_GRADE'
+        DataType = ftSmallint
+        Precision = -1
+      end    
+      item
+        Name = 'JOB_COUNTRY'
+        DataType = ftString
+        Size = 15
+      end    
+      item
+        Name = 'SALARY'
+        DataType = ftFloat
+        Precision = -1
+      end    
+      item
+        Name = 'FULL_NAME'
+        DataType = ftString
+        Size = 37
+      end>
+    MasterCascadeDelete = True
+    Inactive = False
+    DataCache = False
+    Params = <>
+    DataBase = RESTDWDataBase1
+    SQL.Strings = (
+      'SELECT * FROM EMPLOYEE'
+    )
+    CacheUpdateRecords = True
+    left = 255
+    top = 288
   end
 end
