@@ -99,6 +99,7 @@ Type
   vPoolerPort          : Integer;                    //A Porta do Pooler
   vProxy               : Boolean;                    //Diz se tem servidor Proxy
   vProxyOptions        : TProxyOptions;              //Se tem Proxy diz quais as opções
+  vEncodeStrings,
   vCompression,                                      //Se Vai haver compressão de Dados
   vConnected           : Boolean;                    //Diz o Estado da Conexão
   vOnEventConnection   : TOnEventConnection;         //Evento de Estado da Conexão
@@ -161,6 +162,7 @@ Type
   Property RestModule         : String                   Read vRestModule         Write vRestModule;        //Classe do Servidor REST Principal
   Property StateConnection    : TAutoCheckData           Read vAutoCheckData      Write vAutoCheckData;     //Autocheck da Conexão
   Property RequestTimeOut     : Integer                  Read vTimeOut            Write vTimeOut;           //Timeout da Requisição
+  Property EncodeStrings      : Boolean                  Read vEncodeStrings      Write vEncodeStrings;
   Property Encoding           : TEncodeSelect            Read VEncondig           Write VEncondig;          //Encoding da string
   Property Context            : string                   Read vContentex          Write vContentex;         //Contexto
   Property StrsTrim           : Boolean                  Read vStrsTrim           Write vStrsTrim;
@@ -170,9 +172,9 @@ End;
 
 Type
  {$IFDEF FPC}
-  TRESTDWClientSQL   = Class(TMemDataset)                    //Classe com as funcionalidades de um DBQuery
+  TRESTDWClientSQL   = Class(TMemDataset)                   //Classe com as funcionalidades de um DBQuery
  {$ELSE}
-  TRESTDWClientSQL   = Class(TJvMemoryData)                    //Classe com as funcionalidades de um DBQuery
+  TRESTDWClientSQL   = Class(TJvMemoryData)                 //Classe com as funcionalidades de um DBQuery
  {$ENDIF}
  Private
   vOldStatus           : TDatasetState;
@@ -187,79 +189,79 @@ Type
   OldData              : TMemoryStream;
   vActualRec           : Integer;
   vMasterFields,
-  vUpdateTableName     : String;                          //Tabela que será feito Update no Servidor se for usada Reflexão de Dados
+  vUpdateTableName     : String;                            //Tabela que será feito Update no Servidor se for usada Reflexão de Dados
   vInactive,
   vCacheUpdateRecords,
   vReadData,
   vCascadeDelete,
   vBeforeClone,
-  vDataCache,                                             //Se usa cache local
-  vConnectedOnce,                                         //Verifica se foi conectado ao Servidor
+  vDataCache,                                               //Se usa cache local
+  vConnectedOnce,                                           //Verifica se foi conectado ao Servidor
   vCommitUpdates,
   vCreateDS,
   vErrorBefore,
-  vActive              : Boolean;                         //Estado do Dataset
-  vSQL                 : TStringList;                     //SQL a ser utilizado na conexão
-  vParams              : TParams;                         //Parametros de Dataset
-  vCacheDataDB         : TDataset;                        //O Cache de Dados Salvo para utilização rápida
-  vOnGetDataError      : TOnEventConnection;              //Se deu erro na hora de receber os dados ou não
+  vActive              : Boolean;                           //Estado do Dataset
+  vSQL                 : TStringList;                       //SQL a ser utilizado na conexão
+  vParams              : TParams;                           //Parametros de Dataset
+  vCacheDataDB         : TDataset;                          //O Cache de Dados Salvo para utilização rápida
+  vOnGetDataError      : TOnEventConnection;                //Se deu erro na hora de receber os dados ou não
   vRESTDataBase        : TRESTDWDataBase;                   //RESTDataBase do Dataset
   vOnAfterDelete       : TDataSetNotifyEvent;
   FieldDefsUPD         : TFieldDefs;
   vMasterDataSet       : TRESTDWClientSQL;
-  vMasterDetailList    : TMasterDetailList;               //DataSet MasterDetail Function
+  vMasterDetailList    : TMasterDetailList;                 //DataSet MasterDetail Function
   {$IFDEF FPC}
-   Procedure CloneDefinitions(Source : TMemDataset;
-                              aSelf  : TMemDataset);      //Fields em Definições
+   Procedure CloneDefinitions     (Source : TMemDataset;
+                                   aSelf  : TMemDataset);   //Fields em Definições
   {$ELSE}
-   Procedure CloneDefinitions(Source : TJvMemoryData;
-                              aSelf  : TJvMemoryData);    //Fields em Definições
+   Procedure  CloneDefinitions    (Source : TJvMemoryData;
+                                   aSelf  : TJvMemoryData); //Fields em Definições
   {$ENDIF}
-  Procedure OnChangingSQL(Sender: TObject);               //Quando Altera o SQL da Lista
-  Procedure SetActiveDB(Value : Boolean);                 //Seta o Estado do Dataset
-  Procedure SetSQL(Value : TStringList);                  //Seta o SQL a ser usado
-  Procedure CreateParams;                                 //Cria os Parametros na lista de Dataset
-  Procedure SetDataBase(Value : TRESTDWDataBase);           //Diz o REST Database
-  Function  GetData : Boolean;                            //Recebe os Dados da Internet vindo do Servidor REST
-  Procedure SetUpdateTableName(Value : String);           //Diz qual a tabela que será feito Update no Banco
-  Procedure OldAfterPost(DataSet: TDataSet);              //Eventos do Dataset para realizar o AfterPost
-  Procedure OldAfterDelete(DataSet: TDataSet);            //Eventos do Dataset para realizar o AfterDelete
-  Procedure SetMasterDataSet(Value : TRESTDWClientSQL);
-  Procedure PrepareDetails(ActiveMode : Boolean);
-  Procedure SetCacheUpdateRecords(Value : Boolean);
-  Procedure PrepareDetailsNew;
-  Function  FirstWord       (Value   : String) : String;
-  Procedure ProcAfterScroll (DataSet : TDataSet);
-  Procedure ProcAfterOpen   (DataSet : TDataSet);
-  Procedure ProcAfterClose  (DataSet : TDataSet);
-  Procedure ProcAfterInsert (DataSet : TDataSet);
-  Procedure ProcBeforeDelete(DataSet : TDataSet);
-  Procedure ProcBeforePost  (DataSet : TDataSet);
-  Procedure ProcAfterPost   (DataSet : TDataSet);
-  Procedure CommitData;
+  Procedure   OnChangingSQL      (Sender  : TObject);       //Quando Altera o SQL da Lista
+  Procedure   SetActiveDB        (Value   : Boolean);       //Seta o Estado do Dataset
+  Procedure   SetSQL             (Value   : TStringList);   //Seta o SQL a ser usado
+  Procedure   CreateParams;                                 //Cria os Parametros na lista de Dataset
+  Procedure   SetDataBase        (Value   : TRESTDWDataBase); //Diz o REST Database
+  Function    GetData : Boolean;                            //Recebe os Dados da Internet vindo do Servidor REST
+  Procedure   SetUpdateTableName (Value   : String);        //Diz qual a tabela que será feito Update no Banco
+  Procedure   OldAfterPost       (DataSet : TDataSet);      //Eventos do Dataset para realizar o AfterPost
+  Procedure   OldAfterDelete     (DataSet : TDataSet);      //Eventos do Dataset para realizar o AfterDelete
+  Procedure   SetMasterDataSet     (Value : TRESTDWClientSQL);
+  Procedure   PrepareDetails  (ActiveMode : Boolean);
+  Procedure   SetCacheUpdateRecords(Value : Boolean);
+  Procedure   PrepareDetailsNew;
+  Function    FirstWord          (Value   : String) : String;
+  Procedure   ProcAfterScroll    (DataSet : TDataSet);
+  Procedure   ProcAfterOpen      (DataSet : TDataSet);
+  Procedure   ProcAfterClose     (DataSet : TDataSet);
+  Procedure   ProcAfterInsert    (DataSet : TDataSet);
+  Procedure   ProcBeforeDelete   (DataSet : TDataSet);
+  Procedure   ProcBeforePost     (DataSet : TDataSet);
+  Procedure   ProcAfterPost      (DataSet : TDataSet);
+  Procedure   CommitData;
  Protected
  Public
   //Métodos
   Procedure   FieldDefsToFields;
-  Function    FieldDefExist(Value : String) : TFieldDef;
+  Function    FieldDefExist      (Value   : String) : TFieldDef;
   Procedure   Open;Overload; Virtual;                     //Método Open que será utilizado no Componente
-  Procedure   Open(SQL: String);Overload; Virtual;        //Método Open que será utilizado no Componente
+  Procedure   Open               (SQL     : String);Overload; Virtual;//Método Open que será utilizado no Componente
   Procedure   ExecOrOpen;                                 //Método Open que será utilizado no Componente
   Procedure   Close;Virtual;                              //Método Close que será utilizado no Componente
   Procedure   CreateDataSet; virtual;
-  Function    ExecSQL(Var Error : String) : Boolean;      //Método ExecSQL que será utilizado no Componente
-  Function    InsertMySQLReturnID : Integer;              //Método de ExecSQL com retorno de Incremento
-  Function    ParamByName(Value : String) : TParam;       //Retorna o Parametro de Acordo com seu nome
-  Function    ApplyUpdates(var Error : String) : Boolean; //Aplica Alterações no Banco de Dados
-  Constructor Create(AOwner : TComponent);Override;       //Cria o Componente
-  Destructor  Destroy;Override;                           //Destroy a Classe
+  Function    ExecSQL          (Var Error : String) : Boolean;   //Método ExecSQL que será utilizado no Componente
+  Function    InsertMySQLReturnID : Integer;                     //Método de ExecSQL com retorno de Incremento
+  Function    ParamByName          (Value : String) : TParam;    //Retorna o Parametro de Acordo com seu nome
+  Function    ApplyUpdates     (Var Error : String) : Boolean;   //Aplica Alterações no Banco de Dados
+  Constructor Create              (AOwner : TComponent);Override;//Cria o Componente
+  Destructor  Destroy;Override;                                  //Destroy a Classe
   Procedure   Loaded; Override;
-  procedure   OpenCursor(InfoQuery: Boolean); Override;   //Subscrevendo o OpenCursor para não ter erros de ADD Fields em Tempo de Design
-  Procedure   GotoRec(Const aRecNo : Integer);
+  procedure   OpenCursor       (InfoQuery : Boolean); Override;  //Subscrevendo o OpenCursor para não ter erros de ADD Fields em Tempo de Design
+  Procedure   GotoRec       (Const aRecNo : Integer);
   Function    ParamCount : Integer;
-  Procedure   DynamicFilter(Field, Value : String; InText : Boolean = False);
+  Procedure   DynamicFilter (Field, Value : String; InText : Boolean = False);
   Procedure   Refresh;
-  Procedure   SaveToStream(Var Stream : TMemoryStream);
+  Procedure   SaveToStream    (Var Stream : TMemoryStream);
  Published
   Property MasterDataSet       : TRESTDWClientSQL    Read vMasterDataSet            Write SetMasterDataSet;
   Property MasterCascadeDelete : Boolean             Read vCascadeDelete            Write vCascadeDelete;
@@ -340,9 +342,11 @@ Type
   vStrsTrim,
   vStrsEmpty2Null,
   vStrsTrim2Len,
+  vEncodeStrings,
   vCompression       : Boolean;
   vEncoding          : TEncodeSelect;
  Public
+  Constructor Create(AOwner  : TComponent);Override; //Cria o Componente
   Procedure ApplyChanges        (TableName,
                                  SQL               : String;
                                  Params            : TDWParams;
@@ -383,6 +387,7 @@ Type
   Property StrsEmpty2Null : Boolean       Read vStrsEmpty2Null Write vStrsEmpty2Null;
   Property StrsTrim2Len   : Boolean       Read vStrsTrim2Len   Write vStrsTrim2Len;
   Property Compression    : Boolean       Read vCompression    Write vCompression;
+  Property EncodeStringsJSON : Boolean       Read vEncodeStrings  Write vEncodeStrings;
   Property Encoding       : TEncodeSelect Read vEncoding       Write vEncoding;
 End;
 
@@ -1220,6 +1225,7 @@ Begin
  vRestPooler               := '';
  vPoolerPort               := 8082;
  vProxy                    := False;
+ vEncodeStrings            := True;
  vProxyOptions             := TProxyOptions.Create;
  vAutoCheckData            := TAutoCheckData.Create;
  vAutoCheckData.vAutoCheck := False;
@@ -1282,8 +1288,16 @@ Var
  vTempSend   : String;
  vConnection : TDWPoolerMethodClient;
 Begin
- Result       := False;
- vConnection  := TDWPoolerMethodClient.Create(Nil);
+ Result                  := False;
+ vConnection             := TDWPoolerMethodClient.Create(Nil);
+ vConnection.Host        := vRestWebService;
+ vConnection.Port        := vPoolerPort;
+ vConnection.Compression := vCompression;
+ {$IFNDEF FPC}
+  {$if CompilerVersion > 21}
+  vConnection.Encoding    := VEncondig;
+  {$IFEND}
+ {$ENDIF}
  Try
   vTempSend   := vConnection.EchoPooler(vRestURL, vRestPooler, vTimeOut, vLogin, vPassword);
   Result      := Trim(vTempSend) <> '';
@@ -2029,7 +2043,7 @@ Begin
  vActive := False;
  Inherited Close;
 // TDataset(Self).Fields.Clear;
-// TDataset(Self).FieldDefs.Clear;
+// FieldDefs.Clear;
 End;
 
 Procedure TRESTDWClientSQL.CommitData;
@@ -2062,56 +2076,10 @@ End;
 
 Procedure TRESTDWClientSQL.OpenCursor(InfoQuery: Boolean);
 Begin
- If Not (vBeforeClone) And Not(vInactive) Then
-  Begin
-   vBeforeClone := True;
-   If vRESTDataBase <> Nil Then
-    Begin
-     If Not vRESTDataBase.Active Then
-      vRESTDataBase.Active := True;
-     If vRESTDataBase.Active Then
-      Begin
-       Try
-        Try
-         If Not (vActive) And (Not (vCreateDS)) Then
-          Begin
-           If GetData Then
-            Begin
-             If Not (csDesigning in ComponentState) Then
-              vActive := True;
-             Inherited OpenCursor(InfoQuery);
-            End;
-          End
-         Else
-          Inherited OpenCursor(InfoQuery);
-        Except
-         On E : Exception do
-          Begin
-           If csDesigning in ComponentState Then
-            Raise Exception.Create(PChar(E.Message))
-           Else
-            Begin
-             If Assigned(vOnGetDataError) Then
-              vOnGetDataError(False, E.Message)
-             Else
-              Raise Exception.Create(PChar(E.Message));
-            End;
-          End;
-        End;
-       Finally
-        vBeforeClone := False;
-       End;
-      End;
-    End
-   Else
-    Raise Exception.Create(PChar('Empty Database Property'));
-  End
- Else If vInactive Then
-  Begin
    Try
     Inherited OpenCursor(InfoQuery);
-    If Not (csDesigning in ComponentState) Then
-     vActive := True;
+    If FieldDefs.Count = 0 Then
+     FieldDefs.Update;
    Except
     On E : Exception do
      Begin
@@ -2126,7 +2094,6 @@ Begin
        End;
      End;
    End;
-  End;
 End;
 
 Procedure TRESTDWClientSQL.OldAfterPost(DataSet: TDataSet);
@@ -2269,6 +2236,7 @@ Begin
     If (LDataSetList <> Nil) And (Not (vError)) Then
      Begin
       Try
+       LDataSetList.Encoded := vRESTDataBase.EncodeStrings;
        LDataSetList.WriteToDataset(dtFull, LDataSetList.ToJSON, Self);
        Result := True;
       Except
@@ -2305,6 +2273,22 @@ Begin
  If vInactive then
   Begin
    vActive := Value;
+   If vActive Then
+    Begin
+     {$IFDEF FPC}
+      TMemDataset(Self).Open;
+     {$ELSE}
+      TJvMemoryData(Self).Open;
+     {$ENDIF}
+    End
+   Else
+    Begin
+     {$IFDEF FPC}
+      TMemDataset(Self).Close;
+     {$ELSE}
+      TJvMemoryData(Self).Close;
+     {$ENDIF}
+    End;
    Exit;
   End;
  vActive := False;
@@ -2408,6 +2392,14 @@ Begin
      Break;
     End;
   End;
+End;
+
+{ TRESTDWDriver }
+
+Constructor TRESTDWDriver.Create(AOwner: TComponent);
+Begin
+ Inherited;
+ vEncodeStrings := True;
 End;
 
 end.

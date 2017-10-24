@@ -147,7 +147,8 @@ Begin
         A          := GetParamIndex(vTempQuery.Params, vParamName);
         If A > -1 Then//vTempQuery.ParamByName(vParamName) <> Nil Then
          Begin
-          If vTempQuery.Params[A].DataType in [ftFixedChar, ftFixedWideChar,
+          If vTempQuery.Params[A].DataType in [{$IFNDEF FPC}{$if CompilerVersion > 21} // Delphi 2010 pra baixo
+                                                ftFixedChar, ftFixedWideChar,{$IFEND}{$ENDIF}
                                                ftString,    ftWideString]    Then
            Begin
             If vTempQuery.Params[A].Size > 0 Then
@@ -184,7 +185,7 @@ Begin
     vTempQuery.Active := True;
     Result := TJSONValue.Create;
     Try
-     Result.LoadFromDataset('RESULTDATA', vTempQuery, False);
+     Result.LoadFromDataset('RESULTDATA', vTempQuery, EncodeStringsJSON);
     Finally
     End;
    End
@@ -350,7 +351,7 @@ Begin
     vTempQuery.Open;
     Result         := TJSONValue.Create;
     Try
-     Result.LoadFromDataset('RESULTDATA', vTempQuery, False);
+     Result.LoadFromDataset('RESULTDATA', vTempQuery, EncodeStringsJSON);
      Error         := False;
     Finally
     End;
