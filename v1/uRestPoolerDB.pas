@@ -1,10 +1,15 @@
 {
+  Rest Dataware with DataSnap for Delphi
+
   Esse pacote de Componentes foi desenhado com o Objetivo de ajudar as pessoas a desenvolverem
   com WebServices REST o mais próximo possível do desenvolvimento local DB, com componentes de
   fácil configuração para que todos tenham acesso as maravilhas dos WebServices REST/JSON DataSnap.
 
-  Desenvolvedor Principal : Gilberto Rocha da Silva (XyberX)
-  Empresa : XyberPower Desenvolvimento
+  Desenvolvedor Inicial : Gilberto Rocha da Silva (XyberX)
+
+  Continuado por Giovani Da Cruz
+
+  Empresa : Infus Soluções em Tecnologia
 }
 
 unit uRestPoolerDB;
@@ -30,82 +35,85 @@ uses System.SysUtils, System.Classes,
   FireDAC.Stan.StorageBin
 {$ENDIF};
 
-Type
+type
   TEncodeSelect = (esASCII, esUtf8);
-  TOnEventDB = Procedure(DataSet: TDataSet) of Object;
-  TOnAfterScroll = Procedure(DataSet: TDataSet) of Object;
-  TOnAfterOpen = Procedure(DataSet: TDataSet) of Object;
-  TOnAfterClose = Procedure(DataSet: TDataSet) of Object;
-  TOnAfterInsert = Procedure(DataSet: TDataSet) of Object;
-  TOnBeforeDelete = Procedure(DataSet: TDataSet) of Object;
-  TOnBeforePost = Procedure(DataSet: TDataSet) of Object;
-  TOnAfterPost = Procedure(DataSet: TDataSet) of Object;
-  TExecuteProc = Reference to Procedure;
-  TOnEventConnection = Procedure(Sucess: Boolean; Const Error: String)
-    of Object;
-  TOnEventBeforeConnection = Procedure(Sender: TComponent) of Object;
-  TOnEventTimer = Procedure of Object;
-  TBeforeGetRecords = Procedure(Sender: TObject; Var OwnerData: OleVariant)
-    of Object;
+  TOnEventDB = procedure(DataSet: TDataSet) of object;
+  TOnAfterScroll = procedure(DataSet: TDataSet) of object;
+  TOnAfterOpen = procedure(DataSet: TDataSet) of object;
+  TOnAfterClose = procedure(DataSet: TDataSet) of object;
+  TOnAfterInsert = procedure(DataSet: TDataSet) of object;
+  TOnBeforeDelete = procedure(DataSet: TDataSet) of object;
+  TOnBeforePost = procedure(DataSet: TDataSet) of object;
+  TOnAfterPost = procedure(DataSet: TDataSet) of object;
+  TExecuteProc = Reference to procedure;
+  TOnEventConnection = procedure(Sucess: Boolean; const Error: string)
+    of object;
+  TOnEventBeforeConnection = procedure(Sender: TComponent) of object;
+  TOnEventTimer = procedure of object;
+  TBeforeGetRecords = procedure(Sender: TObject; var OwnerData: OleVariant)
+    of object;
 
-Type
-  TTimerData = Class(TThread)
-  Private
-    FValue: Integer; // Milisegundos para execução
+type
+  TTimerData = class(TThread)
+  private
+    FValue: Integer;         // Milisegundos para execução
     FLock: TCriticalSection; // Seção crítica
-    vEvent: TOnEventTimer; // Evento a ser executado
-  Public
-    Property OnEventTimer: TOnEventTimer Read vEvent Write vEvent;
+    vEvent: TOnEventTimer;   // Evento a ser executado
+  public
     // Evento a ser executado
-  Protected
-    Constructor Create(AValue: Integer; ALock: TCriticalSection);
+    property OnEventTimer: TOnEventTimer read vEvent write vEvent;
+  protected
     // Construtor do Evento
-    Procedure Execute; Override; // Procedure de Execução automática
-  End;
+    constructor Create(AValue: Integer; ALock: TCriticalSection);
+    procedure Execute; override; // Procedure de Execução automática
+  end;
 
-Type
-  TAutoCheckData = Class(TPersistent)
-  Private
-    vAutoCheck: Boolean; // Se tem Autochecagem
-    vInTime: Integer; // Em milisegundos o timer
-    Timer: TTimerData; // Thread do temporizador
-    vEvent: TOnEventTimer; // Evento a executar
-    FLock: TCriticalSection; // CriticalSection para execução segura
-    Procedure SetState(Value: Boolean); // Ativa ou desativa a classe
-    Procedure SetInTime(Value: Integer); // Diz o Timeout
-    Procedure SetEventTimer(Value: TOnEventTimer);
-    // Seta o Evento a ser executado
-  Public
-    Constructor Create; // Cria o Componente
-    Destructor Destroy; Override; // Destroy a Classe
-    Procedure Assign(Source: TPersistent); Override;
-  Published
-    Property AutoCheck: Boolean Read vAutoCheck Write SetState;
-    // Se tem Autochecagem
-    Property InTime: Integer Read vInTime Write SetInTime;
-    // Em milisegundos o timer
-    Property OnEventTimer: TOnEventTimer Read vEvent Write SetEventTimer;
-    // Evento a executar
-  End;
+type
+  TAutoCheckData = class(TPersistent)
+  private
+    vAutoCheck: Boolean;      // Se tem Autochecagem
+    vInTime: Integer;         // Em milisegundos o timer
+    Timer: TTimerData;        // Thread do temporizador
+    vEvent: TOnEventTimer;    // Evento a executar
+    FLock: TCriticalSection;  // CriticalSection para execução segura
+    procedure SetState(Value: Boolean);  // Ativa ou desativa a classe
+    procedure SetInTime(Value: Integer); // Diz o Timeout
 
-Type
+    { Seta o Evento a ser executado }
+    procedure SetEventTimer(Value: TOnEventTimer);
+  public
+    constructor Create; // Cria o Componente
+    destructor Destroy; override; // Destroy a Classe
+    procedure Assign(Source: TPersistent); override;
+  published
+    { Se tem Autochecagem }
+    property AutoCheck: Boolean read vAutoCheck write SetState;
+
+    { Em milisegundos o timer }
+    property InTime: Integer read vInTime write SetInTime;
+
+    { Evento a executar }
+    property OnEventTimer: TOnEventTimer read vEvent write SetEventTimer;
+  end;
+
+type
   TProxyOptions = Class(TPersistent)
-  Private
-    vServer, // Servidor Proxy na Rede
-    vLogin, // Login do Servidor Proxy
+  private
+    vServer,           // Servidor Proxy na Rede
+    vLogin,            // Login do Servidor Proxy
     vPassword: String; // Senha do Servidor Proxy
-    vPort: Integer; // Porta do Servidor Proxy
-  Public
+    vPort: Integer;    // Porta do Servidor Proxy
+  public
     Constructor Create;
     Procedure Assign(Source: TPersistent); Override;
-  Published
+  published
     Property Server: String Read vServer Write vServer;
     // Servidor Proxy na Rede
-    Property Port: Integer Read vPort Write vPort; // Porta do Servidor Proxy
+    Property Port: Integer Read vPort Write vPort;   // Porta do Servidor Proxy
     Property Login: String Read vLogin Write vLogin; // Login do Servidor Proxy
     Property Password: String Read vPassword Write vPassword;
     // Senha do Servidor Proxy
-  End;
+  end;
 
 Type
   TRESTDataBase = Class(TComponent)
@@ -275,7 +283,7 @@ Type
     // Método Open que será utilizado no Componente
     Procedure ExecOrOpen; // Método Open que será utilizado no Componente
     Procedure Close; Virtual; // Método Close que será utilizado no Componente
-    Procedure CreateDataSet; virtual;
+    Procedure CreateDataSet; override;
     Function ExecSQL(Var Error: String): Boolean;
     // Método ExecSQL que será utilizado no Componente
     Function InsertMySQLReturnID: Integer;
@@ -2082,13 +2090,20 @@ begin
   end;
 end;
 
-Procedure TRESTClientSQL.Open;
-Begin
-  If Not vActive Then
+procedure TRESTClientSQL.Open;
+begin
+  if (SQL.Text = EmptyStr) then
+  begin
+    raise Exception.Create(
+      Format('Can not be Empty SQL property in %s.', [Self.Name]));
+  end;
+
+  if not (vActive) then
     SetActiveDB(True);
-  If vActive Then
-    Inherited Open;
-End;
+
+  if (vActive) then
+    inherited Open;
+end;
 
 Procedure TRESTClientSQL.Open(SQL: String);
 Begin
