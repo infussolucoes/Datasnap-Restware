@@ -56,9 +56,9 @@ type
 type
   TTimerData = class(TThread)
   private
-    FValue: Integer;         // Milisegundos para execução
+    FValue: Integer; // Milisegundos para execução
     FLock: TCriticalSection; // Seção crítica
-    vEvent: TOnEventTimer;   // Evento a ser executado
+    vEvent: TOnEventTimer; // Evento a ser executado
   public
     // Evento a ser executado
     property OnEventTimer: TOnEventTimer read vEvent write vEvent;
@@ -71,12 +71,12 @@ type
 type
   TAutoCheckData = class(TPersistent)
   private
-    vAutoCheck: Boolean;      // Se tem Autochecagem
-    vInTime: Integer;         // Em milisegundos o timer
-    Timer: TTimerData;        // Thread do temporizador
-    vEvent: TOnEventTimer;    // Evento a executar
-    FLock: TCriticalSection;  // CriticalSection para execução segura
-    procedure SetState(Value: Boolean);  // Ativa ou desativa a classe
+    vAutoCheck: Boolean; // Se tem Autochecagem
+    vInTime: Integer; // Em milisegundos o timer
+    Timer: TTimerData; // Thread do temporizador
+    vEvent: TOnEventTimer; // Evento a executar
+    FLock: TCriticalSection; // CriticalSection para execução segura
+    procedure SetState(Value: Boolean); // Ativa ou desativa a classe
     procedure SetInTime(Value: Integer); // Diz o Timeout
 
     { Seta o Evento a ser executado }
@@ -99,17 +99,17 @@ type
 type
   TProxyOptions = Class(TPersistent)
   private
-    vServer,           // Servidor Proxy na Rede
-    vLogin,            // Login do Servidor Proxy
+    vServer, // Servidor Proxy na Rede
+    vLogin, // Login do Servidor Proxy
     vPassword: String; // Senha do Servidor Proxy
-    vPort: Integer;    // Porta do Servidor Proxy
+    vPort: Integer; // Porta do Servidor Proxy
   public
     Constructor Create;
     Procedure Assign(Source: TPersistent); Override;
   published
     Property Server: String Read vServer Write vServer;
     // Servidor Proxy na Rede
-    Property Port: Integer Read vPort Write vPort;   // Porta do Servidor Proxy
+    Property Port: Integer Read vPort Write vPort; // Porta do Servidor Proxy
     Property Login: String Read vLogin Write vLogin; // Login do Servidor Proxy
     Property Password: String Read vPassword Write vPassword;
     // Senha do Servidor Proxy
@@ -141,6 +141,8 @@ Type
     vContentex: String; // Contexto - Alexandre Abade
     vRESTContext: String; // RestContexto - Alexandre Abade
     vStrsTrim, vStrsEmpty2Null, vStrsTrim2Len: Boolean;
+
+    vMemTableAux : TFdMemTable;
     Procedure SetConnection(Value: Boolean); // Seta o Estado da Conexão
     Procedure SetRestPooler(Value: String); // Seta o Restpooler a ser utilizado
     Procedure SetPoolerPort(Value: Integer);
@@ -161,6 +163,7 @@ Type
     Function InsertMySQLReturnID(Var SQL: TStringList; Var Params: TParams;
       Var Error: Boolean; Var MessageError: String): Integer;
     Function GetStateDB: Boolean;
+    function GetMemTableAux : TFdMemTable;
   Public
     Function GetRestPoolers: TStringList;
     // Retorna a Lista de DataSet Sources do Pooler
@@ -214,7 +217,7 @@ Type
 
 Type
   TRESTClientSQL = Class(TFDMemTable)
-  // Classe com as funcionalidades de um DBQuery
+    // Classe com as funcionalidades de um DBQuery
   Private
     vOldStatus: TDatasetState;
     vDataSource: TDataSource;
@@ -245,6 +248,8 @@ Type
     FieldDefsUPD: TFieldDefs;
     vMasterDataSet: TRESTClientSQL;
     vMasterDetailList: TMasterDetailList; // DataSet MasterDetail Function
+    FMasterDetailItemAux : TMasterDetailItem;
+    function GetMasterDetailItemAux : TMasterDetailItem;
     Procedure CloneDefinitions(Source: TFDMemTable; aSelf: TRESTClientSQL);
     // Fields em Definições
     Procedure OnChangingSQL(Sender: TObject); // Quando Altera o SQL da Lista
@@ -1127,7 +1132,9 @@ Begin
         Begin
           Original := TMemoryStream.Create;
           gZIPStream := TMemoryStream.Create;
-          MemTable := TFDMemTable.Create(Nil);
+          MemTable := GetMemTableAux;
+          MemTable.Close;
+
           LDataSetList := TFDJSONDataSets.Create;
           vTempWriter := TFDJSONDataSetsWriter.Create(Result);
           Try
@@ -1140,7 +1147,7 @@ Begin
             MemTable.Close;
             Original.Position := 0;
             doUnGZIP(Original, gZIPStream);
-{$IF CompilerVersion > 28}
+{$IF CompilerVersion >= 28}
             MemTable.LoadFromStream(gZIPStream, sfJSON);
 {$ELSE}
             MemTable.LoadFromStream(gZIPStream);
@@ -1169,6 +1176,11 @@ Begin
   End;
   vDSRConnection.DisposeOf;
   vRESTConnectionDB.DisposeOf;
+
+  if (oJsonObject <> nil) then
+  begin
+    FreeAndNil(oJsonObject);
+  end;
 End;
 
 Procedure TRESTDataBase.ExecuteProcedure(ProcName: String; Params: TParams;
@@ -1209,6 +1221,14 @@ Begin
     vRESTConnectionDB.DisposeOf;
   End;
 End;
+
+function TRESTDataBase.GetMemTableAux: TFdMemTable;
+begin
+  if not (Assigned(vMemTableAux)) then
+    vMemTableAux := TFDMemTable.Create(nil);
+
+  Result := vMemTableAux;
+end;
 
 Function TRESTDataBase.GetRestPoolers: TStringList;
 Var
@@ -1302,6 +1322,12 @@ Begin
   vAutoCheckData.vAutoCheck := False;
   vProxyOptions.DisposeOf;
   vAutoCheckData.DisposeOf;
+
+  if Assigned(vMemTableAux) then
+  begin
+    Freeandnil(vMemTableAux);
+  end;
+
   Inherited;
 End;
 
@@ -1447,7 +1473,7 @@ Begin
   vMasterDataSet := Value;
   If (vMasterDataSet <> Nil) Then
   Begin
-    MasterDetailItem := TMasterDetailItem.Create;
+    MasterDetailItem := Self.GetMasterDetailItemAux;  //TMasterDetailItem.Create;
     MasterDetailItem.DataSet := TRESTClient(Self);
     TRESTClientSQL(vMasterDataSet).vMasterDetailList.Add(MasterDetailItem);
     vDataSource.DataSet := Value;
@@ -1510,9 +1536,17 @@ Begin
       (TRESTClient(Self));
   vMasterDetailList.DisposeOf;
   vDataSource.DisposeOf;
+
   If vCacheDataDB <> Nil Then
     vCacheDataDB.DisposeOf;
+
   OldData.DisposeOf;
+
+  if Assigned(FMasterDetailItemAux) then
+  begin
+    FreeAndNil(FMasterDetailItemAux);
+  end;
+
   Inherited;
 End;
 
@@ -1861,6 +1895,8 @@ var
   End;
 
 Begin
+  oJsonObject := nil;
+
   If vReadData Then
   Begin
     Result := True;
@@ -1932,6 +1968,11 @@ Begin
       GotoRec(vActualRec);
   Except
   End;
+
+  if oJsonObject <> nil then
+  begin
+    FreeAndNil(oJsonObject);
+  end;
 End;
 
 function TRESTClientSQL.ParamByName(Value: string): TParam;
@@ -1958,7 +1999,8 @@ begin
 
   if not Assigned(Result) then
   begin
-    raise Exception.Create(Format('Param %s not found.', [Value]));
+    raise Exception.Create(Format('%s error: Param %s not found.',
+      [Self.Name, Value]));
   end;
 end;
 
@@ -2017,14 +2059,22 @@ Function TRESTClientSQL.ExecSQL(Var Error: String): Boolean;
 Var
   vError: Boolean;
   vMessageError: String;
+  aJson : TFDJSONDataSets;
 Begin
   Result := False;
   Try
     If vRESTDataBase <> Nil Then
     Begin
+      aJson :=
       vRESTDataBase.ExecuteCommand(vSQL, vParams, vError, vMessageError, True);
+
       Result := Not vError;
       Error := vMessageError;
+
+      if aJson <> nil then
+      begin
+        FreeAndNil(aJson);
+      end;
     End
     Else
       Raise Exception.Create(PChar('Empty Database Property'));
@@ -2094,11 +2144,11 @@ procedure TRESTClientSQL.Open;
 begin
   if (SQL.Text = EmptyStr) then
   begin
-    raise Exception.Create(
-      Format('Can not be Empty SQL property in %s.', [Self.Name]));
+    raise Exception.Create(Format('Can not be Empty SQL property in %s.',
+      [Self.Name]));
   end;
 
-  if not (vActive) then
+  if not(vActive) then
     SetActiveDB(True);
 
   if (vActive) then
@@ -2316,9 +2366,11 @@ Begin
   Self.Close;
   If Assigned(vRESTDataBase) Then
   Begin
+
     Try
       LDataSetList := vRESTDataBase.ExecuteCommand(vSQL, vParams, vError,
         vMessageError, False);
+
       If (LDataSetList <> Nil) And (Not(vError)) Then
       Begin
         vTempTable := TFDMemTable.Create(Nil);
@@ -2338,7 +2390,7 @@ Begin
         vTempTable.DisposeOf;
       End;
     Except
-      If LDataSetList <> Nil Then
+      if LDataSetList <> nil then
         LDataSetList.DisposeOf;
     End;
     If vError Then
@@ -2353,10 +2405,26 @@ Begin
           Raise Exception.Create(PChar(vMessageError));
       End;
     End;
-  End
-  Else
-    Raise Exception.Create(PChar('Empty Database Property'));
+  end
+  else
+  begin
+    raise Exception.Create(PChar('Empty Database Property'));
+  end;
+
+  { Libera a memoria }
+  if LDataSetList <> nil then
+    LDataSetList.DisposeOf;
 End;
+
+function TRESTClientSQL.GetMasterDetailItemAux: TMasterDetailItem;
+begin
+  if not Assigned(FMasterDetailItemAux) then
+  begin
+    FMasterDetailItemAux := TMasterDetailItem.Create;
+  end;
+
+  Result := FMasterDetailItemAux;
+end;
 
 Procedure TRESTClientSQL.SetActiveDB(Value: Boolean);
 Begin
