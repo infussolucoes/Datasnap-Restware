@@ -11,11 +11,9 @@ uses System.SysUtils, System.Classes, Data.DBXJSON,
   Data.DB, Data.FireDACJSONReflect, Data.DBXJSONReflect,
   uPoolerMethod, Data.DBXPlatform,
   DbxCompressionFilter, uRestCompressTools,
-  System.ZLib, uRestPoolerDB
-{$IF CompilerVersion > 26}
-    , System.JSON, FireDAC.Stan.StorageBin, FireDAC.Stan.StorageJSON,
-  FireDAC.Phys.IBDef, Datasnap.DSProviderDataModuleAdapter
-{$IFEND};
+  System.ZLib, uRestPoolerDB, System.JSON, FireDAC.Stan.StorageBin,
+  FireDAC.Stan.StorageJSON,
+  FireDAC.Phys.IBDef, Datasnap.DSProviderDataModuleAdapter;
 
 {$IFDEF MSWINDOWS}
 
@@ -23,9 +21,14 @@ Type
   TRESTDriverFD = Class(TRESTDriver)
   Private
     vFDConnectionBack, vFDConnection: TFDConnection;
+    FMemTableAuxCommand : TFDMemTable;
+    FMemTableAuxCommand2 : TFDMemTable;
     Procedure SetConnection(Value: TFDConnection);
     Function GetConnection: TFDConnection;
+    function GetMemTableAuxCommand : TFDMemTable;
+    function GetMemTableAuxCommand2 : TFDMemTable;
   Public
+    destructor Destroy; override;
     Procedure ApplyChanges(TableName, SQL: String; Params: TParams;
       Var Error: Boolean; Var MessageError: String;
       Const ADeltaList: TFDJSONDeltas); Overload; Override;
@@ -69,19 +72,20 @@ End;
 
 procedure TRESTDriverFD.ApplyChanges(TableName, SQL: String; var Error: Boolean;
   var MessageError: String; const ADeltaList: TFDJSONDeltas);
-Var
+var
   vTempQuery: TFDQuery;
   LApply: IFDJSONDeltasApplyUpdates;
   Original, gZIPStream: TStringStream;
-  LDataSetList: TFDJSONDataSets;
   oJsonObject: TJSONObject;
   bDeltaList: TFDJSONDeltas;
 begin
-  Inherited;
+  inherited;
+
   Error := False;
   vTempQuery := TFDQuery.Create(Owner);
   vTempQuery.CachedUpdates := True;
-  Try
+
+  try
     vTempQuery.Connection := vFDConnection;
     vTempQuery.FormatOptions.StrsTrim := StrsTrim;
     vTempQuery.FormatOptions.StrsEmpty2Null := StrsEmpty2Null;
@@ -89,26 +93,26 @@ begin
     vTempQuery.SQL.Clear;
     vTempQuery.SQL.Add(DecodeStrings(SQL, GetEncoding(Encoding)));
     vTempQuery.Active := True;
-  Except
-    On E: Exception do
-    Begin
+  except
+    on E: Exception do
+    begin
       Error := True;
       MessageError := E.Message;
       vTempQuery.DisposeOf;
       Exit;
-    End;
-  End;
-  If Compression Then
-  Begin
-    LDataSetList := TFDJSONDataSets.Create;
-    oJsonObject := TJSONObject.Create;
+    end;
+  end;
+
+  if Compression then
+  begin
+    Original := TStringStream.Create;
+    gZIPStream := TStringStream.Create;
+
     Try
-      TFDJSONInterceptor.DataSetsToJSONObject(ADeltaList, oJsonObject);
-      TFDJSONInterceptor.JSONObjectToDataSets(oJsonObject, ADeltaList);
       LApply := TFDJSONDeltasApplyUpdates.Create(ADeltaList);
-      Original := TStringStream.Create;
-      gZIPStream := TStringStream.Create;
+
       bDeltaList := TFDJSONDeltas.Create;
+
       If LApply.Values[0].RecordCount > 0 Then
       Begin
         LApply.Values[0].First;
@@ -120,26 +124,34 @@ begin
           .GetBytes(gZIPStream.DataString), 0) as TJSONObject;
         TFDJSONInterceptor.JSONObjectToDataSets(oJsonObject, bDeltaList);
       End;
+
     Finally
       Original.DisposeOf;
       gZIPStream.DisposeOf;
-      oJsonObject.DisposeOf;
+      FreeAndNil(oJsonObject);
     End;
+
     LApply := TFDJSONDeltasApplyUpdates.Create(bDeltaList);
-  End
-  Else
+  end
+  else
+  begin
     LApply := TFDJSONDeltasApplyUpdates.Create(ADeltaList);
+  end;
+
   vTempQuery.UpdateOptions.UpdateTableName := TableName;
+
   Try
     LApply.ApplyUpdates(TableName, vTempQuery.Command);
   Except
 
   End;
+
   If LApply.Errors.Count > 0 then
   Begin
     Error := True;
     MessageError := LApply.Errors.Strings.Text;
   End;
+
   If Not Error Then
   Begin
     Try
@@ -153,7 +165,9 @@ begin
       End;
     End;
   End;
+
   vTempQuery.DisposeOf;
+  FreeAndNil(bDeltaList);
 end;
 
 procedure TRESTDriverFD.ApplyChanges(TableName, SQL: String; Params: TParams;
@@ -163,15 +177,17 @@ Var
   I: Integer;
   vTempQuery: TFDQuery;
   LApply: IFDJSONDeltasApplyUpdates;
-  LDataSetList: TFDJSONDataSets;
   oJsonObject: TJSONObject;
   Original, gZIPStream: TStringStream;
   bDeltaList: TFDJSONDeltas;
 begin
   Inherited;
+
   Error := False;
+
   vTempQuery := TFDQuery.Create(Owner);
   vTempQuery.CachedUpdates := True;
+
   Try
     vTempQuery.Connection := vFDConnection;
     vTempQuery.FormatOptions.StrsTrim := StrsTrim;
@@ -226,16 +242,19 @@ begin
       Exit;
     End;
   End;
+
   If Compression Then
   Begin
-    LDataSetList := TFDJSONDataSets.Create;
+
     oJsonObject := TJSONObject.Create;
+    Original := TStringStream.Create;
+    gZIPStream := TStringStream.Create;
+
     Try
       TFDJSONInterceptor.DataSetsToJSONObject(ADeltaList, oJsonObject);
       TFDJSONInterceptor.JSONObjectToDataSets(oJsonObject, ADeltaList);
       LApply := TFDJSONDeltasApplyUpdates.Create(ADeltaList);
-      Original := TStringStream.Create;
-      gZIPStream := TStringStream.Create;
+
       bDeltaList := TFDJSONDeltas.Create;
       If LApply.Values[0].RecordCount > 0 Then
       Begin
@@ -251,22 +270,29 @@ begin
     Finally
       Original.DisposeOf;
       gZIPStream.DisposeOf;
-      oJsonObject.DisposeOf;
+
+      FreeAndNil(oJsonObject);
     End;
+
     LApply := TFDJSONDeltasApplyUpdates.Create(bDeltaList);
   End
   Else
+  begin
     LApply := TFDJSONDeltasApplyUpdates.Create(ADeltaList);
+  end;
+
   vTempQuery.UpdateOptions.UpdateTableName := TableName;
   Try
     LApply.ApplyUpdates(TableName, vTempQuery.Command);
   Except
   End;
+
   If LApply.Errors.Count > 0 then
   Begin
     Error := True;
     MessageError := LApply.Errors.Strings.Text;
   End;
+
   Try
     Connection.CommitRetaining;
   Except
@@ -277,7 +303,8 @@ begin
       MessageError := E.Message;
     End;
   End;
-  vTempQuery.DisposeOf;
+
+  FreeandNil( vTempQuery );
 end;
 
 Procedure TRESTDriverFD.Close;
@@ -286,6 +313,31 @@ Begin
   If Connection <> Nil Then
     Connection.Close;
 End;
+
+destructor TRESTDriverFD.Destroy;
+begin
+  if (Assigned(FMemTableAuxCommand)) then
+  begin
+    if FMemTableAuxCommand.FieldDefs.Count > 0 then
+    begin
+      FMemTableAuxCommand.FieldDefs.Clear;
+    end;
+
+    FreeAndNil(FMemTableAuxCommand);
+  end;
+
+  if (Assigned(FMemTableAuxCommand2)) then
+  begin
+    if FMemTableAuxCommand2.FieldDefs.Count > 0 then
+    begin
+      FMemTableAuxCommand2.FieldDefs.Clear;
+    end;
+
+    FreeAndNil(FMemTableAuxCommand2);
+  end;
+
+  inherited;
+end;
 
 function TRESTDriverFD.ExecuteCommand(SQL: String; Params: TParams;
   var Error: Boolean; var MessageError: String; Execute: Boolean)
@@ -297,7 +349,6 @@ Var
   vParamName: String;
   Original: TStringStream;
   gZIPStream: TMemoryStream;
-  tempDataSets: TFDJSONDataSets;
   MemTable: TFDMemTable;
   Function GetParamIndex(Params: TFDParams; ParamName: String): Integer;
   Var
@@ -370,17 +421,14 @@ Begin
       Try
         If Compression Then
         Begin
-          tempDataSets := TFDJSONDataSets.Create;
-          MemTable := TFDMemTable.Create(Nil);
+          MemTable := Self.GetMemTableAuxCommand;
           Original := TStringStream.Create;
           gZIPStream := TMemoryStream.Create;
           Try
             vTempQuery.Open;
-{$IF CompilerVersion > 26}
+
             vTempQuery.SaveToStream(Original, sfJSON);
-{$ELSE}
-            vTempQuery.SaveToStream(Original);
-{$IFEND};
+
             // make it gzip
             doGZIP(Original, gZIPStream);
             MemTable.FieldDefs.Add('compress', ftBlob);
@@ -398,7 +446,7 @@ Begin
         Else
           vTempWriter.ListAdd(Result, vTempQuery);
       Finally
-        vTempWriter := Nil;
+        //vTempWriter := Nil;
         vTempWriter.DisposeOf;
       End;
     End
@@ -544,7 +592,6 @@ Var
   vTempQuery: TFDQuery;
   vTempWriter: TFDJSONDataSetsWriter;
   Original, gZIPStream: TMemoryStream;
-  tempDataSets: TFDJSONDataSets;
   MemTable: TFDMemTable;
 Begin
   Inherited;
@@ -568,16 +615,13 @@ Begin
       Try
         If Compression Then
         Begin
-          tempDataSets := TFDJSONDataSets.Create;
-          MemTable := TFDMemTable.Create(Nil);
+          MemTable := Self.GetMemTableAuxCommand2;
           Original := TStringStream.Create;
           gZIPStream := TMemoryStream.Create;
           Try
-{$IF CompilerVersion > 26}
+
             vTempQuery.SaveToStream(Original, sfJSON);
-{$ELSE}
-            vTempQuery.SaveToStream(Original);
-{$IFEND};
+
             // make it gzip
             doGZIP(Original, gZIPStream);
             MemTable.FieldDefs.Add('compress', ftBlob);
@@ -595,8 +639,9 @@ Begin
         Else
           vTempWriter.ListAdd(Result, vTempQuery);
       Finally
-        vTempWriter := Nil;
-        vTempWriter.DisposeOf;
+        //vTempWriter := Nil;
+        //vTempWriter.DisposeOf;
+        FreeAndNil(vTempWriter);
       End;
     End
     Else
@@ -621,6 +666,26 @@ Function TRESTDriverFD.GetConnection: TFDConnection;
 Begin
   Result := vFDConnectionBack;
 End;
+
+function TRESTDriverFD.GetMemTableAuxCommand: TFDMemTable;
+begin
+  if not (Assigned(FMemTableAuxCommand)) then
+  begin
+    FMemTableAuxCommand := TFDMemTable.Create(nil);
+  end;
+
+  Result := FMemTableAuxCommand;
+end;
+
+function TRESTDriverFD.GetMemTableAuxCommand2: TFDMemTable;
+begin
+  if not (Assigned(FMemTableAuxCommand2)) then
+  begin
+    FMemTableAuxCommand2 := TFDMemTable.Create(nil);
+  end;
+
+  Result := FMemTableAuxCommand2;
+end;
 
 Function TRESTDriverFD.InsertMySQLReturnID(SQL: String; Params: TParams;
   var Error: Boolean; var MessageError: String): Integer;
