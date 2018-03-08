@@ -1973,6 +1973,11 @@ Begin
   begin
     FreeAndNil(oJsonObject);
   end;
+
+  if LDeltaList <> nil then
+  begin
+    FreeAndNil(LDeltaList);
+  end;
 End;
 
 function TRESTClientSQL.ParamByName(Value: string): TParam;

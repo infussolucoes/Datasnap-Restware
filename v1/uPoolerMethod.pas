@@ -384,7 +384,41 @@ Procedure TSMPoolerMethodClient.ApplyChangesPure(Pooler, Method_Prefix,
   TableName, SQL: String; ADeltaList: TFDJSONDeltas; Var Error: Boolean;
   Var MessageError: String; Const ARequestFilter: String = '';
   TimeOut: Integer = 3000; UserName: String = ''; Password: String = '');
+
+//  function DeepCopy(aValue: TObject): TObject;
+//  var
+//    MarshalObj: TJSONMarshal;
+//    UnMarshalObj: TJSONUnMarshal;
+//    JSONValue: TJSONValue;
+//  begin
+//    Result:= nil;
+//    MarshalObj := TJSONMarshal.Create;
+//    UnMarshalObj := TJSONUnMarshal.Create;
+//    try
+//      JSONValue := MarshalObj.Marshal(aValue);
+//      try
+//        if Assigned(JSONValue) then
+//          Result:= UnMarshalObj.Unmarshal(JSONValue);
+//      finally
+//        JSONValue.Free;
+//      end;
+//    finally
+//      MarshalObj.Free;
+//      UnMarshalObj.Free;
+//    end;
+//  end;
+
+var
+//  localDeltaList: TFDJSONDeltas;
+  vErro : Boolean;
+  vMessage : string;
 Begin
+//  localDeltaList := nil;
+//  If Assigned(ADeltaList) Then
+//  begin
+//    localDeltaList := TFDJSONDeltas( DeepCopy(ADeltaList) );
+//  end;
+
   If FApplyChangesPureCommand = Nil Then
   Begin
     FApplyChangesPureCommand := FConnection.CreateCommand;
@@ -411,8 +445,8 @@ Begin
     Try
       FApplyChangesPureCommand.Parameters[3].Value.SetJSONValue
         (FMarshal.Marshal(ADeltaList), True);
-      If FInstanceOwner Then
-        ADeltaList.Free;
+//      If FInstanceOwner Then
+//        ADeltaList.Free;
     Finally
       FreeAndNil(FMarshal);
     End;
@@ -420,8 +454,14 @@ Begin
   FApplyChangesPureCommand.Parameters[4].Value.SetBoolean(Error);
   FApplyChangesPureCommand.Parameters[5].Value.SetWideString(MessageError);
   FApplyChangesPureCommand.Execute(ARequestFilter);
-  Error := FApplyChangesPureCommand.Parameters[4].Value.GetBoolean;
-  MessageError := FApplyChangesPureCommand.Parameters[5].Value.GetWideString;
+
+  vErro := FApplyChangesPureCommand.Parameters[4].Value.GetBoolean;
+  vMessage := FApplyChangesPureCommand.Parameters[5].Value.GetWideString;
+
+  Error := vErro;
+  MessageError := vMessage;
+
+  FreeAndNil(FApplyChangesPureCommand);
 End;
 
 Procedure TSMPoolerMethodClient.GetPoolerList_Cache(Method_Prefix: String;
@@ -607,9 +647,6 @@ begin
       .Value.GetJSONValue(FInstanceOwner)).ToJSON;
 
     Result := TJSONObject.ParseJSONValue(vJsonText) as TJSONObject;
-
-//    Result := TJSONObject(FExecuteCommandPureJSONCommand.Parameters[5]
-//      .Value.GetJSONValue(FInstanceOwner));
   except
     Result := nil;
     FExecuteCommandPureJSONCommand := nil;
@@ -968,7 +1005,7 @@ Begin
   FPoolersDataSetCommand.DisposeOf;
   FInsertValueCommand.DisposeOf;
 
-//  FApplyChangesPureCommand.DisposeOf;
+ // FApplyChangesPureCommand.DisposeOf;
   FExecuteCommandPureJSONCommand.DisposeOf;
 
   FExecuteCommandCommand.DisposeOf;
