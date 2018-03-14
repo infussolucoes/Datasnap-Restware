@@ -1976,7 +1976,10 @@ Begin
 
   if LDeltaList <> nil then
   begin
-    FreeAndNil(LDeltaList);
+    try
+      FreeAndNil(LDeltaList);
+    except
+    end;
   end;
 End;
 
