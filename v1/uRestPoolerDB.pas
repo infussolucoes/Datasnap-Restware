@@ -1528,12 +1528,25 @@ End;
 
 Destructor TRESTClientSQL.Destroy;
 Begin
-  vSQL.DisposeOf;
-  vParams.DisposeOf;
-  FieldDefsUPD.DisposeOf;
+  if vSQL <> nil then
+  begin
+    vSQL.DisposeOf;
+  end;
+
+  If vParams <> Nil Then
+  begin
+    vParams.DisposeOf;
+  end;
+
+  If FieldDefsUPD <> Nil Then
+  begin
+    FieldDefsUPD.DisposeOf;
+  end;
+
   If (vMasterDataSet <> Nil) Then
     TRESTClientSQL(vMasterDataSet).vMasterDetailList.DeleteDS
       (TRESTClient(Self));
+
   vMasterDetailList.DisposeOf;
   vDataSource.DisposeOf;
 
@@ -1653,6 +1666,7 @@ Var
 
 Begin
   vParams.Clear;
+
   ParamList := ReturnParams(vSQL.Text);
   If ParamList <> Nil Then
     For I := 0 to ParamList.Count - 1 Do
