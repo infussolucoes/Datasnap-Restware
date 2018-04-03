@@ -2386,6 +2386,12 @@ Begin
   Result := False;
   LDataSetList := nil;
   Self.Close;
+
+  if vSQL.Text = '' then
+  begin
+    raise Exception.Create('SQL property can not be empty in ' + Self.Name + '!');
+  end;
+
   If Assigned(vRESTDataBase) Then
   Begin
 
@@ -2424,7 +2430,12 @@ Begin
         If Assigned(vOnGetDataError) Then
           vOnGetDataError(Not(vError), vMessageError)
         Else
+        begin
+          if LDataSetList <> nil then
+            LDataSetList.DisposeOf;
+
           Raise Exception.Create(PChar(vMessageError));
+        end;
       End;
     End;
   end
