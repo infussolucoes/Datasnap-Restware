@@ -1947,7 +1947,7 @@ Begin
   End
   Else
   Begin
-    Raise Exception.Create(PChar('Empty Database Property'));
+    Raise Exception.Create(PChar('Empty Database Property on ApplyUpdates'));
     Exit;
   End;
   If Assigned(vRESTDataBase) And (Trim(UpdateTableName) <> '') Then
@@ -2099,7 +2099,7 @@ Begin
       end;
     End
     Else
-      Raise Exception.Create(PChar('Empty Database Property'));
+      Raise Exception.Create(PChar('Empty Database Property on ExecSQL'));
   Except
   End;
 End;
@@ -2115,7 +2115,7 @@ Begin
       Result := vRESTDataBase.InsertMySQLReturnID(vSQL, vParams, vError,
         vMessageError)
     Else
-      Raise Exception.Create(PChar('Empty Database Property'));
+      Raise Exception.Create(PChar('Empty Database Property on Insert MYSQL Return ID'));
   Except
   End;
 End;
@@ -2166,7 +2166,7 @@ procedure TRESTClientSQL.Open;
 begin
   if (SQL.Text = EmptyStr) then
   begin
-    raise Exception.Create(Format('Can not be Empty SQL property in %s.',
+    raise Exception.Create(Format('Can not be Empty SQL property "Open" in %s.',
       [Self.Name]));
   end;
 
@@ -2232,7 +2232,9 @@ Begin
       End;
     End
     Else
-      Raise Exception.Create(PChar('Empty Database Property'));
+    begin
+      Raise Exception.Create(PChar('Empty Database Property on OpenCursor'));
+    end
   End;
 End;
 
@@ -2441,7 +2443,7 @@ Begin
   end
   else
   begin
-    raise Exception.Create(PChar('Empty Database Property'));
+    raise Exception.Create(PChar('Empty Database Property On Get Data'));
   end;
 
   { Libera a memoria }
@@ -2502,8 +2504,8 @@ Begin
   Begin
     vActive := False;
     Close;
-    If vRESTDataBase = Nil Then
-      Raise Exception.Create(PChar('Empty Database Property'));
+    //If vRESTDataBase = Nil Then
+    //  Raise Exception.Create(PChar('Empty Database Property on Active DB'));
   End;
 End;
 
@@ -2538,7 +2540,7 @@ Begin
       vRESTDataBase.ExecuteProcedure(vProcName, vParams, Result, Error);
   End
   Else
-    Raise Exception.Create(PChar('Empty Database Property'));
+    Raise Exception.Create(PChar('Empty Database Property on ExeProc'));
 End;
 
 Function TRESTStoredProc.ParamByName(Value: String): TParam;
