@@ -12,3 +12,10 @@ Para facilitar, criamos também um local para a discução de melhorias desta ve
 Fórum oficial: Em Breve.
 
 
+# Apoie este trabalho
+
+Doe você também!
+
+PELO PAGSEGURO: https://pag.ae/7VccpnuCN
+
+APOIE COM BITCOIN: 13JUHQpT7zAU7pC1q6cQBYGpq5EF8XoLcL
