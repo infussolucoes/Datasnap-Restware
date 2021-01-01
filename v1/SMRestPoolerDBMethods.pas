@@ -446,16 +446,19 @@ Begin
 End;
 
 Function Tmodule.GetUnitClassName : String;
-Var
+var
  VMT,
  P    : Pointer;
-Begin
- Result := '';
- VMT    := Pointer(self.ClassType);
- P      := PPointer(PByte(VMT) + vmtTypeInfo)^;
- If P <> Nil Then
-  Result := GetTypeData(P).UnitName;
-End;
+begin
+  Result := '';
+  VMT    := Pointer(self.ClassType);
+  P      := PPointer(PByte(VMT) + vmtTypeInfo)^;
+
+  if (P <> nil) then
+  begin
+    Result := String(GetTypeData(P).UnitName);
+  end;
+end;
 
 Function Tmodule.InsertValue(Pooler,
                              SQL              : String;
